@@ -32,3 +32,4 @@ export async function generateImageWithContext(inputPrompt: string, imageUrls: s
     model
   };
 }
+

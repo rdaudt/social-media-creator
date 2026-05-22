@@ -70,7 +70,7 @@ export default function ChatPage() {
                 <strong>{m.role}</strong>
                 <p>{m.content}</p>
                 {meta?.image?.signedUrl ? <img src={meta.image.signedUrl} alt="generated" style={{ width: "100%", borderRadius: 8 }} /> : null}
-                {meta?.usage ? <small>{meta.usage.model} • ${meta.usage.estimatedCost} • {meta.usage.durationMs}ms</small> : null}
+                {meta?.usage ? <small>{meta.usage.model} â€¢ ${meta.usage.estimatedCost} â€¢ {meta.usage.durationMs}ms</small> : null}
               </article>
             );
           })}

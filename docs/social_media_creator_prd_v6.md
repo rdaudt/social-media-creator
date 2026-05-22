@@ -942,13 +942,13 @@ Media attached directly by users during chatbot interactions SHALL NOT be perman
 
 ```text
 User Browser
-    ↓
+    â†“
 Temporary in-memory/server upload handling
-    ↓
+    â†“
 Forward to GPT Image 2 request
-    ↓
+    â†“
 Request completed
-    ↓
+    â†“
 Temporary buffers discarded
 ```
 
@@ -979,11 +979,11 @@ Generated images SHALL NOT be permanently stored by the application.
 
 ```text
 GPT Image 2
-    ↓
+    â†“
 App Server
-    ↓
+    â†“
 Returned directly to chat UI
-    ↓
+    â†“
 User optionally downloads image locally
 ```
 
@@ -1022,11 +1022,11 @@ The user SHALL wait inline within the chatbot session for generation completion.
 
 ```text
 User submits prompt
-    ↓
+    â†“
 Chatbot shows loading state
-    ↓
+    â†“
 GPT Image 2 returns result
-    ↓
+    â†“
 Image rendered immediately in chat
 ```
 
@@ -1241,7 +1241,7 @@ The Social Media Creator SHALL treat them as read-only data sources.
 
 ## 38.1 coach_tenants
 
-This table represents the core Fitness Coach business/profile entity managed by the HIIT Timer Portal application. fileciteturn0file2
+This table represents the core Fitness Coach business/profile entity managed by the HIIT Timer Portal application. îˆ€fileciteîˆ‚turn0file2îˆ
 
 This is the primary branding and business-context source used during AI media generation.
 
@@ -1306,7 +1306,7 @@ Example usage:
 
 ## 38.2 coach_hiit_classes
 
-This table represents historical HIIT workout/class executions managed by the HIIT Timer application. fileciteturn0file1
+This table represents historical HIIT workout/class executions managed by the HIIT Timer application. îˆ€fileciteîˆ‚turn0file1îˆ
 
 This table is a major contextual source for dynamic social content generation.
 
@@ -1382,7 +1382,7 @@ Example:
 The Social Media Creator MAY use this snapshot data to generate:
 
 - workout-specific promotional graphics
-- “Workout of the Day” images
+- â€œWorkout of the Dayâ€ images
 - workout summaries
 - class recap visuals
 - intensity-focused social content
@@ -1390,10 +1390,10 @@ The Social Media Creator MAY use this snapshot data to generate:
 - coach activity storytelling
 
 Examples:
-- “Today’s Sweat Tsunami workout”
-- “2-station HIIT blast”
-- “Pushups + Pullups challenge”
-- “Coach-led HIIT session recap”
+- â€œTodayâ€™s Sweat Tsunami workoutâ€
+- â€œ2-station HIIT blastâ€
+- â€œPushups + Pullups challengeâ€
+- â€œCoach-led HIIT session recapâ€
 
 ### Important Derived Metadata
 
@@ -1418,7 +1418,7 @@ These attributes can be transformed into:
 
 ## 38.3 coach_class_locations
 
-This table represents physical or business locations associated with coach classes. fileciteturn0file0
+This table represents physical or business locations associated with coach classes. îˆ€fileciteîˆ‚turn0file0îˆ
 
 ### Key Fields
 
@@ -1442,8 +1442,8 @@ Location information MAY be used to:
 - reinforce local branding
 
 Example:
-- “Tonight at Downtown Studio”
-- “Saturday HIIT session at BurnFit Vancouver”
+- â€œTonight at Downtown Studioâ€
+- â€œSaturday HIIT session at BurnFit Vancouverâ€
 
 ---
 
@@ -1645,11 +1645,11 @@ Instead, the application SHALL:
 
 ```text
 Coach selects existing asset
-    ↓
+    â†“
 Server validates ownership
-    ↓
+    â†“
 Server generates short-lived signed URL
-    ↓
+    â†“
 Signed URL passed to GPT Image 2
 ```
 
@@ -1661,7 +1661,7 @@ Signed URLs SHOULD:
 - be generated server-side only
 
 Recommended expiration:
-- 1–5 minutes
+- 1â€“5 minutes
 
 The browser SHALL NEVER:
 - receive Blob read/write tokens
@@ -1693,17 +1693,17 @@ Temporary uploads SHALL:
 
 ```text
 Coach selects local image
-    ↓
+    â†“
 Browser uploads temporarily to server
-    ↓
+    â†“
 Server uploads to temporary Blob path
-    ↓
+    â†“
 Server generates short-lived signed URL
-    ↓
+    â†“
 Signed URL passed to GPT Image 2
-    ↓
+    â†“
 Generation completes
-    ↓
+    â†“
 Temporary upload scheduled for cleanup/deletion
 ```
 
@@ -1741,9 +1741,9 @@ Recommended TTL:
 
 ```text
 Permanent Blob asset
-    ↓
+    â†“
 Signed URL
-    ↓
+    â†“
 GPT Image 2
 ```
 
@@ -1751,9 +1751,9 @@ GPT Image 2
 
 ```text
 Temporary Blob asset
-    ↓
+    â†“
 Signed URL
-    ↓
+    â†“
 GPT Image 2
 ```
 
@@ -1771,15 +1771,15 @@ Example flow:
 
 ```text
 GPT Image 2 response
-    ↓
+    â†“
 Temporary Blob storage
-    ↓
+    â†“
 Short-lived signed download URL
-    ↓
+    â†“
 Displayed in chatbot UI
-    ↓
+    â†“
 Coach optionally downloads
-    ↓
+    â†“
 Temporary cleanup/deletion
 ```
 
@@ -1843,3 +1843,4 @@ Displayed inline as:
 - generated image previews
 - downloadable cards
 - variation/regenerate actions
+

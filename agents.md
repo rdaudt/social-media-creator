@@ -14,3 +14,4 @@ CRITICAL INSTRUCTIONS:
 1. When searching for API usage, React hooks, function calls, or class definitions, use `sg --lang <language> -p '<pattern>'`.
 2. Avoid dumping raw `grep` text walls into the prompt context window. 
 3. Only use standard text search for searching comments, strings, or prose.
+
