@@ -3,16 +3,17 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3500",
     "build": "next build",
-    "start": "next start",
+    "start": "next start -p 3500",
     "typecheck": "tsc --noEmit",
-    "lint": "next lint"
+    "lint": "next lint",
+    "turso": "powershell -ExecutionPolicy Bypass -File ./scripts/turso.ps1"
   },
   "dependencies": {
     "@libsql/client": "^0.14.0",
     "@vercel/blob": "^0.27.0",
-    "next": "15.3.0",
+    "next": "^15.3.9",
     "openai": "^4.103.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
