@@ -7,6 +7,13 @@ export const db = createClient({
 
 export async function bootstrapSchema(): Promise<void> {
   await db.batch([
+    `CREATE TABLE IF NOT EXISTS assets (
+      id TEXT PRIMARY KEY,
+      owner_google_sub TEXT NOT NULL,
+      title TEXT NOT NULL,
+      blob_url TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    )`,
     `CREATE TABLE IF NOT EXISTS chat_sessions (
       id TEXT PRIMARY KEY,
       owner_google_sub TEXT NOT NULL,
