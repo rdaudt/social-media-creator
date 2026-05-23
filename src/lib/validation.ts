@@ -13,6 +13,8 @@ export const generateSchema = z.object({
   sessionId: z.string().min(1),
   message: z.string().min(1),
   promptTemplateId: z.string().optional(),
+  locationId: z.string().optional(),
+  classId: z.string().optional(),
   format: z.enum(["square", "portrait", "story"]),
   selectedAssetIds: z.array(z.string()).default([]),
   tempUploadRefs: z.array(z.string()).default([]),

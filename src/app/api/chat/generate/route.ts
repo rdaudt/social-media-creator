@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireCoachSessionUser } from "@/lib/auth";
 import { putTempBlob } from "@/lib/blob";
-import { getCoachContext } from "@/lib/context";
+import { getCoachBootstrap, getCoachContext } from "@/lib/context";
 import { bootstrapSchema, db, newId } from "@/lib/db";
 import { authErrorResponse } from "@/lib/http";
 import { generateImageWithContext } from "@/lib/openai";
@@ -53,7 +53,20 @@ export async function POST(req: Request) {
       for (const row of res.rows) ownedAssetUrls.push(String(row.blob_url));
     }
 
-    const context = await getCoachContext(user.email, user.sub);
+    const bootstrap = await getCoachBootstrap(user.email, user.sub);
+    if (body.locationId && !bootstrap.locations.some((loc) => loc.id === body.locationId)) {
+      return NextResponse.json({ error: "invalid_location_scope" }, { status: 403 });
+    }
+    if (body.classId && !bootstrap.classes.some((klass) => klass.id === body.classId)) {
+      return NextResponse.json({ error: "invalid_class_scope" }, { status: 403 });
+    }
+
+    const context = await getCoachContext(
+      user.email,
+      user.sub,
+      body.locationId ?? bootstrap.defaults.selectedLocationId,
+      body.classId ?? bootstrap.defaults.selectedClassId
+    );
     const assembledPrompt = `${templatePrompt}\n\nFormat: ${body.format}\nUser message: ${body.message}\nOptions: ${JSON.stringify(body.options ?? {})}\n\n${context}`;
 
     userMessageId = newId("msg");
