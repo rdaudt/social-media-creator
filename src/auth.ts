@@ -44,6 +44,15 @@ async function getRoleByEmail(email: string | null | undefined): Promise<AppRole
     return value === 1 ? "admin" : "coach";
   }
 
+  const adminEmailsRaw = normalizeEnv(process.env.ADMIN_EMAILS) ?? "";
+  const adminEmails = adminEmailsRaw
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+  if (adminEmails.includes(normalized)) {
+    return "admin";
+  }
+
   return "coach";
 }
 
