@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import { getSessionUser } from "@/lib/auth";
+import { requireCoachSessionUser } from "@/lib/auth";
 import { bootstrapSchema, db } from "@/lib/db";
 import { authErrorResponse } from "@/lib/http";
 
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     await bootstrapSchema();
-    const user = await getSessionUser();
+    const user = await requireCoachSessionUser();
     const { id } = await params;
 
     const own = await db.execute({

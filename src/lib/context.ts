@@ -1,11 +1,12 @@
 import { db } from "@/lib/db";
 
-export async function getCoachContext(ownerSub: string): Promise<string> {
+export async function getCoachContext(ownerEmail: string, ownerSub: string): Promise<string> {
+  const normalizedEmail = ownerEmail.trim().toLowerCase();
   const tenant = await db.execute({
     sql: `SELECT business_name, coach_name, bio, brand_headline, header_tagline, theme_primary_color, theme_secondary_color, ig_username
           FROM coach_tenants
-          WHERE owner_google_sub = ? LIMIT 1`,
-    args: [ownerSub]
+          WHERE lower(owner_email) = ? LIMIT 1`,
+    args: [normalizedEmail]
   });
 
   const classRow = await db.execute({
@@ -19,9 +20,9 @@ export async function getCoachContext(ownerSub: string): Promise<string> {
   const loc = await db.execute({
     sql: `SELECT business_name, location_name
           FROM coach_class_locations
-          WHERE tenant_id = (SELECT id FROM coach_tenants WHERE owner_google_sub = ? LIMIT 1)
+          WHERE tenant_id = (SELECT id FROM coach_tenants WHERE lower(owner_email) = ? LIMIT 1)
           ORDER BY is_default DESC, sort_order ASC LIMIT 1`,
-    args: [ownerSub]
+    args: [normalizedEmail]
   });
 
   const t = tenant.rows[0];

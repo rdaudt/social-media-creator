@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import { getSessionUser } from "@/lib/auth";
+import { requireCoachSessionUser } from "@/lib/auth";
 import { bootstrapSchema, db } from "@/lib/db";
 import { authErrorResponse } from "@/lib/http";
 
 export async function GET() {
   try {
     await bootstrapSchema();
-    const user = await getSessionUser();
+    const user = await requireCoachSessionUser();
     const res = await db.execute({
       sql: `SELECT id, title, blob_url, created_at FROM assets WHERE owner_google_sub = ? ORDER BY created_at DESC LIMIT 200`,
       args: [user.sub]
