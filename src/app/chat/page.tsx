@@ -10,7 +10,10 @@ export default async function ChatPage() {
     if (code === "forbidden") {
       redirect("/access-denied");
     }
-    redirect("/signin?callbackUrl=/chat");
+    if (code === "unauthorized") {
+      redirect("/signin?callbackUrl=/chat");
+    }
+    throw error;
   }
 
   return <ChatPageClient />;
