@@ -9,3 +9,5 @@ node_modules/
 .env*.local
 *-client-secret.json
 *google*secret*.json
+
+.env*.local

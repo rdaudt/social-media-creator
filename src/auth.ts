@@ -47,14 +47,61 @@ async function getRoleByEmail(email: string | null | undefined): Promise<AppRole
   return "coach";
 }
 
+function normalizeEnv(value: string | undefined): string | undefined {
+  if (!value) return value;
+  const trimmed = value.trim();
+  if (trimmed.length >= 2 && trimmed.startsWith("\"") && trimmed.endsWith("\"")) {
+    return trimmed.slice(1, -1).trim();
+  }
+  return trimmed;
+}
+
+function debugAuthConfig(): void {
+  if (process.env.DEBUG_AUTH !== "1") return;
+  const id = normalizeEnv(process.env.GOOGLE_CLIENT_ID) ?? "";
+  const secret = normalizeEnv(process.env.GOOGLE_CLIENT_SECRET) ?? "";
+  const authSecret = normalizeEnv(process.env.AUTH_SECRET ?? process.env.AUTH_SESSION_SECRET) ?? "";
+  const appBaseUrl = process.env.APP_BASE_URL ?? "";
+  const authUrl = process.env.AUTH_URL ?? process.env.NEXTAUTH_URL ?? "";
+  const safe = (value: string) => (value.length > 8 ? `...${value.slice(-8)}` : value || "<empty>");
+
+  console.log("[auth-debug] runtime config", {
+    googleClientId: safe(id),
+    googleClientIdLength: id.length,
+    googleClientSecret: safe(secret),
+    googleClientSecretLength: secret.length,
+    authSecretLength: authSecret.length,
+    appBaseUrl,
+    authUrl
+  });
+}
+
+debugAuthConfig();
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   trustHost: true,
-  secret: process.env.AUTH_SECRET ?? process.env.AUTH_SESSION_SECRET,
+  secret: normalizeEnv(process.env.AUTH_SECRET ?? process.env.AUTH_SESSION_SECRET),
+  debug: process.env.DEBUG_AUTH === "1",
+  logger: {
+    error(code, ...message) {
+      console.error("[authjs][error]", code, ...message);
+    },
+    warn(code, ...message) {
+      if (process.env.DEBUG_AUTH === "1") {
+        console.warn("[authjs][warn]", code, ...message);
+      }
+    },
+    debug(code, ...message) {
+      if (process.env.DEBUG_AUTH === "1") {
+        console.log("[authjs][debug]", code, ...message);
+      }
+    }
+  },
   session: { strategy: "jwt" },
   providers: [
     Google({
-      clientId: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET
+      clientId: normalizeEnv(process.env.GOOGLE_CLIENT_ID),
+      clientSecret: normalizeEnv(process.env.GOOGLE_CLIENT_SECRET)
     })
   ],
   callbacks: {
