@@ -26,6 +26,8 @@ export type CoachProfile = {
   id: string;
   businessName: string | null;
   coachName: string | null;
+  coachPhotoUrl: string | null;
+  businessLogoUrl: string | null;
   bio: string | null;
   brandHeadline: string | null;
   headerTagline: string | null;
@@ -48,6 +50,7 @@ export type CoachHiitClass = {
   timerNameAtRun: string | null;
   category: string | null;
   classDate: string | null;
+  startTime: string | null;
   locationLabelAtRun: string | null;
   timerSnapshotJson: string | null;
   ranAt: string | null;

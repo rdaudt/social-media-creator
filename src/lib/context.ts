@@ -14,26 +14,28 @@ function asNumber(v: unknown, fallback = 0): number {
   return Number.isFinite(n) ? n : fallback;
 }
 
+function pickAssetUrlByTitle(assets: Array<{ title: string; blob_url: string }>, patterns: string[]): string | null {
+  const lowerPatterns = patterns.map((p) => p.toLowerCase()).filter(Boolean);
+  for (const asset of assets) {
+    const title = asset.title.toLowerCase();
+    if (lowerPatterns.some((p) => title.includes(p))) {
+      return asset.blob_url;
+    }
+  }
+  return null;
+}
+
 export async function getCoachBootstrap(ownerEmail: string, ownerSub: string): Promise<ChatBootstrapResponse> {
   const normalizedEmail = ownerEmail.trim().toLowerCase();
   const tenant = await db.execute({
-    sql: `SELECT id, business_name, coach_name, bio, brand_headline, header_tagline, theme_primary_color, theme_secondary_color, ig_username
+    sql: `SELECT id, business_name, coach_name, logo_url, coach_photo_url, bio, brand_headline, header_tagline, theme_primary_color, theme_secondary_color, ig_username
           FROM coach_tenants
           WHERE lower(owner_email) = ? LIMIT 1`,
     args: [normalizedEmail]
   });
   const tenantId = asStringOrNull(tenant.rows[0]?.id);
-  const coach: CoachProfile | null = tenant.rows[0] ? {
-    id: String(tenant.rows[0].id),
-    businessName: asStringOrNull(tenant.rows[0].business_name),
-    coachName: asStringOrNull(tenant.rows[0].coach_name),
-    bio: asStringOrNull(tenant.rows[0].bio),
-    brandHeadline: asStringOrNull(tenant.rows[0].brand_headline),
-    headerTagline: asStringOrNull(tenant.rows[0].header_tagline),
-    themePrimaryColor: asStringOrNull(tenant.rows[0].theme_primary_color),
-    themeSecondaryColor: asStringOrNull(tenant.rows[0].theme_secondary_color),
-    igUsername: asStringOrNull(tenant.rows[0].ig_username)
-  } : null;
+  const coachBusinessName = asStringOrNull(tenant.rows[0]?.business_name);
+  const coachName = asStringOrNull(tenant.rows[0]?.coach_name);
 
   const locationsRes = await db.execute({
     sql: `SELECT l.id, l.business_name, l.location_name, l.is_default, l.sort_order,
@@ -71,6 +73,7 @@ export async function getCoachBootstrap(ownerEmail: string, ownerSub: string): P
     timerNameAtRun: asStringOrNull(r.timer_name_at_run),
     category: asStringOrNull(r.category),
     classDate: asStringOrNull(r.class_date),
+    startTime: asStringOrNull(r.ran_at),
     locationLabelAtRun: asStringOrNull(r.location_label_at_run),
     timerSnapshotJson: asStringOrNull(r.timer_snapshot_json),
     ranAt: asStringOrNull(r.ran_at)
@@ -96,16 +99,40 @@ export async function getCoachBootstrap(ownerEmail: string, ownerSub: string): P
           ORDER BY updated_at DESC LIMIT 100`,
     args: [ownerSub]
   });
+  const assetRows = assetsRes.rows.map((r) => ({
+    id: String(r.id),
+    title: String(r.title),
+    blob_url: String(r.blob_url),
+    created_at: String(r.created_at)
+  }));
+  const tenantBusinessLogoUrl = asStringOrNull(tenant.rows[0]?.logo_url);
+  const tenantCoachPhotoUrl = asStringOrNull(tenant.rows[0]?.coach_photo_url);
+  const businessLogoFromLocation = locations.find((loc) => Boolean(loc.logoUrl))?.logoUrl ?? null;
+  const businessLogoFromAssets = pickAssetUrlByTitle(assetRows, [coachBusinessName ?? "", "business logo", "logo"]);
+  const coachPhotoFromAssets = pickAssetUrlByTitle(assetRows, [coachName ?? "", "coach photo", "profile", "headshot"]);
+  const coach: CoachProfile | null = tenant.rows[0] ? {
+    id: String(tenant.rows[0].id),
+    businessName: coachBusinessName,
+    coachName,
+    coachPhotoUrl: tenantCoachPhotoUrl ?? coachPhotoFromAssets,
+    businessLogoUrl: tenantBusinessLogoUrl ?? businessLogoFromLocation ?? businessLogoFromAssets,
+    bio: asStringOrNull(tenant.rows[0].bio),
+    brandHeadline: asStringOrNull(tenant.rows[0].brand_headline),
+    headerTagline: asStringOrNull(tenant.rows[0].header_tagline),
+    themePrimaryColor: asStringOrNull(tenant.rows[0].theme_primary_color),
+    themeSecondaryColor: asStringOrNull(tenant.rows[0].theme_secondary_color),
+    igUsername: asStringOrNull(tenant.rows[0].ig_username)
+  } : null;
 
   return {
     coach,
     locations,
     classes,
-    assets: assetsRes.rows.map((r) => ({
-      id: String(r.id),
-      title: String(r.title),
-      blobUrl: String(r.blob_url),
-      createdAt: String(r.created_at)
+    assets: assetRows.map((r) => ({
+      id: r.id,
+      title: r.title,
+      blobUrl: r.blob_url,
+      createdAt: r.created_at
     })),
     templates: templatesRes.rows.map((r) => ({
       id: String(r.id),

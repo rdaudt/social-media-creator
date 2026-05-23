@@ -67,27 +67,57 @@ export default function ChatPageClient() {
     setSelectedAssetIds((prev) => prev.includes(assetId) ? prev.filter((id) => id !== assetId) : [...prev, assetId]);
   }
 
+  function formatClassEntry(classDate: string | null, startTime: string | null, locationName: string | null, className: string | null): string {
+    const datePart = classDate || "No date";
+    const startTimePart = startTime ? new Date(startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "No time";
+    const locationPart = locationName || "No location";
+    const classNamePart = className || "No class name";
+    return `${datePart} - ${startTimePart} - ${locationPart} - ${classNamePart}`;
+  }
+
+  function onClassChange(classId: string) {
+    setSelectedClassId(classId);
+    const selected = (bootstrap?.classes ?? []).find((klass) => klass.id === classId);
+    if (!selected?.locationLabelAtRun) return;
+    const matchingLocation = (bootstrap?.locations ?? []).find((loc) => loc.locationName === selected.locationLabelAtRun);
+    if (matchingLocation?.id) {
+      setSelectedLocationId(matchingLocation.id);
+    }
+  }
+
+  function toImageSrc(url: string | null | undefined): string | null {
+    if (!url) return null;
+    if (!url.includes(".blob.vercel-storage.com")) return url;
+    return `/api/blob?url=${encodeURIComponent(url)}`;
+  }
+
   return (
     <div className="grid grid-2">
       <section className="card">
-        <h2>Coach Context</h2>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {toImageSrc(bootstrap?.coach?.coachPhotoUrl) ? (
+            <img
+              src={toImageSrc(bootstrap?.coach?.coachPhotoUrl) ?? ""}
+              alt={bootstrap?.coach?.coachName ?? "Coach photo"}
+              style={{ width: 44, height: 44, objectFit: "cover", borderRadius: "50%" }}
+            />
+          ) : null}
+          <h2 style={{ margin: 0 }}>{bootstrap?.coach?.coachName ?? "Coach"}</h2>
+        </div>
         <p><strong>Business:</strong> {bootstrap?.coach?.businessName ?? "N/A"}</p>
-        <p><strong>Coach:</strong> {bootstrap?.coach?.coachName ?? "N/A"}</p>
-        <h3>Location</h3>
-        <select value={selectedLocationId} onChange={(e) => setSelectedLocationId(e.target.value)}>
-          <option value="">None</option>
-          {(bootstrap?.locations ?? []).map((loc) => (
-            <option key={loc.id} value={loc.id}>
-              {(loc.businessName ?? "Business")} - {(loc.locationName ?? "Location")}
-            </option>
-          ))}
-        </select>
-        <h3 style={{ marginTop: 10 }}>HIIT Class</h3>
-        <select value={selectedClassId} onChange={(e) => setSelectedClassId(e.target.value)}>
+        {toImageSrc(bootstrap?.coach?.businessLogoUrl) ? (
+          <img
+            src={toImageSrc(bootstrap?.coach?.businessLogoUrl) ?? ""}
+            alt={`${bootstrap?.coach?.businessName ?? "Business"} logo`}
+            style={{ width: 72, height: 72, objectFit: "contain", borderRadius: 8 }}
+          />
+        ) : null}
+        <h3 style={{ marginTop: 10 }}>HIIT Classes</h3>
+        <select value={selectedClassId} onChange={(e) => onClassChange(e.target.value)}>
           <option value="">Latest available</option>
           {(bootstrap?.classes ?? []).map((klass) => (
             <option key={klass.id} value={klass.id}>
-              {(klass.timerNameAtRun ?? "Class")} ({klass.classDate ?? "No date"})
+              {formatClassEntry(klass.classDate, klass.startTime ?? klass.ranAt, klass.locationLabelAtRun, klass.timerNameAtRun)}
             </option>
           ))}
         </select>

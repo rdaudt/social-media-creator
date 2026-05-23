@@ -51,9 +51,9 @@ test("selected location and class are sent in generate request", async ({ page }
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
-        coach: { id: "tenant_1", businessName: "Fit Lab", coachName: "Alex", bio: null, brandHeadline: null, headerTagline: null, themePrimaryColor: null, themeSecondaryColor: null, igUsername: null },
+        coach: { id: "tenant_1", businessName: "Fit Lab", coachName: "Alex", coachPhotoUrl: null, businessLogoUrl: null, bio: null, brandHeadline: null, headerTagline: null, themePrimaryColor: null, themeSecondaryColor: null, igUsername: null },
         locations: [{ id: "loc_1", businessName: "Fit Lab", locationName: "Downtown", logoUrl: null, isDefault: true, sortOrder: 0 }],
-        classes: [{ id: "class_1", timerNameAtRun: "Morning Blast", category: "HIIT", classDate: "2026-05-20", locationLabelAtRun: "Downtown", timerSnapshotJson: "{}", ranAt: "2026-05-20T10:00:00.000Z" }],
+        classes: [{ id: "class_1", timerNameAtRun: "Morning Blast", category: "HIIT", classDate: "2026-05-20", startTime: "2026-05-20T10:00:00.000Z", locationLabelAtRun: "Downtown", timerSnapshotJson: "{}", ranAt: "2026-05-20T10:00:00.000Z" }],
         assets: [],
         templates: [],
         sessions: [{ id: "chat_1", title: "Test Session", createdAt: "2026-05-20T10:00:00.000Z", updatedAt: "2026-05-20T10:00:00.000Z" }],
