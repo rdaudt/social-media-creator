@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import { getSessionUser } from "@/lib/auth";
+import { requireCoachSessionUser } from "@/lib/auth";
 import { bootstrapSchema, db } from "@/lib/db";
 import { authErrorResponse } from "@/lib/http";
 
 export async function GET(req: Request) {
   try {
     await bootstrapSchema();
-    await getSessionUser();
+    await requireCoachSessionUser();
     const { searchParams } = new URL(req.url);
     const platform = searchParams.get("platform");
     const format = searchParams.get("format");

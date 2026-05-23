@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSessionUser } from "@/lib/auth";
+import { requireCoachSessionUser } from "@/lib/auth";
 import { putTempBlob } from "@/lib/blob";
 import { getCoachContext } from "@/lib/context";
 import { bootstrapSchema, db, newId } from "@/lib/db";
@@ -16,7 +16,7 @@ export async function POST(req: Request) {
 
   try {
     await bootstrapSchema();
-    const user = await getSessionUser();
+    const user = await requireCoachSessionUser();
     ownerSub = user.sub;
 
     const rate = checkRateLimit(`gen:${user.sub}`, 8, 60_000);
@@ -53,7 +53,7 @@ export async function POST(req: Request) {
       for (const row of res.rows) ownedAssetUrls.push(String(row.blob_url));
     }
 
-    const context = await getCoachContext(user.sub);
+    const context = await getCoachContext(user.email, user.sub);
     const assembledPrompt = `${templatePrompt}\n\nFormat: ${body.format}\nUser message: ${body.message}\nOptions: ${JSON.stringify(body.options ?? {})}\n\n${context}`;
 
     userMessageId = newId("msg");

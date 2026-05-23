@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import { getSessionUser } from "@/lib/auth";
+import { requireCoachSessionUser } from "@/lib/auth";
 import { bootstrapSchema, db, newId, nowIso } from "@/lib/db";
 import { authErrorResponse } from "@/lib/http";
 
 export async function GET() {
   try {
     await bootstrapSchema();
-    const user = await getSessionUser();
+    const user = await requireCoachSessionUser();
     const res = await db.execute({
       sql: `SELECT id, title, created_at, updated_at FROM chat_sessions
             WHERE owner_google_sub = ? ORDER BY updated_at DESC LIMIT 100`,
@@ -21,7 +21,7 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     await bootstrapSchema();
-    const user = await getSessionUser();
+    const user = await requireCoachSessionUser();
     const body = await req.json().catch(() => ({}));
     const id = newId("chat");
     const title = typeof body.title === "string" && body.title.trim() ? body.title : "New chat";
