@@ -1,14 +1,14 @@
-import { cookies, headers } from "next/headers";
 import { SessionUser } from "@/types";
+import { auth } from "@/auth";
 
 export async function getSessionUser(): Promise<SessionUser> {
-  const cookieStore = await cookies();
-  const sub = cookieStore.get("smc_sub")?.value ?? "dev-coach-sub";
-  const email = cookieStore.get("smc_email")?.value ?? "coach@example.com";
-  const roleCookie = cookieStore.get("smc_role")?.value;
-  const roleHeader = (await headers()).get("x-smc-role");
-  const role = roleCookie === "admin" || roleHeader === "admin" ? "admin" : "coach";
-  return { sub, email, role };
+  const session = await auth();
+  const user = session?.user;
+  if (!user?.sub || !user?.email) {
+    throw new Error("unauthorized");
+  }
+  const role = user.role === "admin" ? "admin" : "coach";
+  return { sub: user.sub, email: user.email, role };
 }
 
 export async function requireAdmin(): Promise<SessionUser> {
