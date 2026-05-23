@@ -1,5 +1,9 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const webServerCommand = process.platform === "win32"
+  ? "powershell -NoProfile -Command \"$env:E2E_AUTH_BYPASS='1'; npm.cmd run dev\""
+  : "E2E_AUTH_BYPASS=1 npm run dev";
+
 export default defineConfig({
   testDir: "./tests/e2e",
   fullyParallel: true,
@@ -15,7 +19,7 @@ export default defineConfig({
     { name: "chromium", use: { ...devices["Desktop Chrome"] } }
   ],
   webServer: {
-    command: "powershell -NoProfile -Command \"$env:E2E_AUTH_BYPASS='1'; npm.cmd run dev\"",
+    command: webServerCommand,
     url: "http://127.0.0.1:3500",
     reuseExistingServer: false,
     timeout: 120000
