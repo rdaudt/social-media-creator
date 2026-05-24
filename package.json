@@ -8,7 +8,10 @@
     "start": "next start -p 3500",
     "typecheck": "tsc --noEmit",
     "lint": "next lint",
-    "turso": "powershell -ExecutionPolicy Bypass -File ./scripts/turso.ps1"
+    "turso": "powershell -ExecutionPolicy Bypass -File ./scripts/turso.ps1",
+    "vercel:dev:restart": "powershell -ExecutionPolicy Bypass -File ./scripts/vercel-dev-restart.ps1",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed"
   },
   "dependencies": {
     "@libsql/client": "^0.14.0",
@@ -21,6 +24,7 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@types/node": "^22.15.32",
     "@types/react": "^19.1.6",
     "@types/react-dom": "^19.1.5",

@@ -104,6 +104,8 @@ export default function ChatPageClient() {
           ) : null}
           <h2 style={{ margin: 0 }}>{bootstrap?.coach?.coachName ?? "Coach"}</h2>
         </div>
+        <p><strong>Tagline:</strong> {bootstrap?.coach?.headerTagline ?? "N/A"}</p>
+        <p><strong>Bio:</strong> {bootstrap?.coach?.bio ?? "N/A"}</p>
         <p><strong>Business:</strong> {bootstrap?.coach?.businessName ?? "N/A"}</p>
         {toImageSrc(bootstrap?.coach?.businessLogoUrl) ? (
           <img
