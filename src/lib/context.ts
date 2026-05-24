@@ -25,6 +25,83 @@ function pickAssetUrlByTitle(assets: Array<{ title: string; blob_url: string }>,
   return null;
 }
 
+type HiitSnapshot = {
+  stationCount?: number;
+  stationWorkoutTypes?: string[];
+  roundsPerStation?: number;
+  workMinutes?: number;
+  workSeconds?: number;
+  restMinutes?: number;
+  restSeconds?: number;
+  stationTransitionMinutes?: number;
+  stationTransitionSeconds?: number;
+  warmupEnabled?: boolean;
+  warmupMinutes?: number;
+  warmupSeconds?: number;
+  cooldownEnabled?: boolean;
+  cooldownMinutes?: number;
+  cooldownSeconds?: number;
+  name?: string;
+};
+
+function toSeconds(minutes?: number, seconds?: number): number {
+  return Math.max(0, Number(minutes ?? 0)) * 60 + Math.max(0, Number(seconds ?? 0));
+}
+
+function asMmSs(totalSeconds: number): string {
+  const mm = Math.floor(totalSeconds / 60);
+  const ss = totalSeconds % 60;
+  return `${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}`;
+}
+
+function parseHiitSnapshot(raw: string | null): HiitSnapshot | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as HiitSnapshot;
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function buildHiitBlock(c?: CoachHiitClass): string {
+  if (!c) return "No recent class found.";
+  const snapshot = parseHiitSnapshot(c.timerSnapshotJson);
+  if (!snapshot) {
+    return `Class name: ${c.timerNameAtRun ?? "N/A"}; Category: ${c.category ?? "N/A"}; Date: ${c.classDate ?? "N/A"}; Location: ${c.locationLabelAtRun ?? "N/A"}; Snapshot unavailable.`;
+  }
+
+  const stationCount = Number(snapshot.stationCount ?? 0);
+  const roundsPerStation = Number(snapshot.roundsPerStation ?? 0);
+  const workSec = toSeconds(snapshot.workMinutes, snapshot.workSeconds);
+  const restSec = toSeconds(snapshot.restMinutes, snapshot.restSeconds);
+  const transitionSec = toSeconds(snapshot.stationTransitionMinutes, snapshot.stationTransitionSeconds);
+  const warmupSec = snapshot.warmupEnabled ? toSeconds(snapshot.warmupMinutes, snapshot.warmupSeconds) : 0;
+  const cooldownSec = snapshot.cooldownEnabled ? toSeconds(snapshot.cooldownMinutes, snapshot.cooldownSeconds) : 0;
+  const intervalsPerStation = Math.max(0, roundsPerStation);
+  const stationRunSec = intervalsPerStation * (workSec + restSec);
+  const totalWorkSec = stationCount * intervalsPerStation * workSec;
+  const classCoreSec = stationCount * stationRunSec + Math.max(0, stationCount - 1) * transitionSec;
+  const totalRunSec = warmupSec + classCoreSec + cooldownSec;
+
+  return [
+    `Class name: ${c.timerNameAtRun ?? snapshot.name ?? "N/A"}`,
+    `Category: ${c.category ?? "N/A"}`,
+    `Date: ${c.classDate ?? "N/A"}`,
+    `Location: ${c.locationLabelAtRun ?? "N/A"}`,
+    `Total run time: ${asMmSs(totalRunSec)} (${totalRunSec}s)`,
+    `Number of stations: ${stationCount}`,
+    `Rounds per station: ${roundsPerStation}`,
+    `Warmup time: ${asMmSs(warmupSec)} (${warmupSec}s)`,
+    `Cooldown time: ${asMmSs(cooldownSec)} (${cooldownSec}s)`,
+    `Work interval: ${asMmSs(workSec)} (${workSec}s)`,
+    `Rest interval: ${asMmSs(restSec)} (${restSec}s)`,
+    `Station transition: ${asMmSs(transitionSec)} (${transitionSec}s)`,
+    `Workout type in each station: ${(snapshot.stationWorkoutTypes ?? []).join(", ") || "N/A"}`,
+    `Total work time only: ${asMmSs(totalWorkSec)} (${totalWorkSec}s)`
+  ].join("; ");
+}
+
 export async function getCoachBootstrap(ownerEmail: string, ownerSub: string): Promise<ChatBootstrapResponse> {
   const normalizedEmail = ownerEmail.trim().toLowerCase();
   const tenant = await db.execute({
@@ -170,8 +247,10 @@ export async function getCoachContext(ownerEmail: string, ownerSub: string, sele
   const chunks = [
     "Coach brand context:",
     t ? `Business: ${t.businessName}; Coach: ${t.coachName}; Bio: ${t.bio}; Headline: ${t.brandHeadline}; Tagline: ${t.headerTagline}; Colors: ${t.themePrimaryColor}, ${t.themeSecondaryColor}; Instagram: ${t.igUsername}` : "No brand profile found.",
-    "Recent class context:",
-    c ? `Class: ${c.timerNameAtRun}; Category: ${c.category}; Date: ${c.classDate}; Location: ${c.locationLabelAtRun}; Snapshot: ${c.timerSnapshotJson}` : "No recent class found.",
+    "HIIT class context:",
+    buildHiitBlock(c),
+    "Raw class snapshot:",
+    c?.timerSnapshotJson ?? "No snapshot found.",
     "Location context:",
     l ? `Business location: ${l.businessName}; Place: ${l.locationName}` : "No location found."
   ];
