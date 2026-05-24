@@ -1,0 +1,112 @@
+Create a modern, premium HIIT class promotional poster for Instagram.
+
+[OUTPUT SPEC]
+- Platform: Instagram
+- Format: Portrait
+- Resolution: 1080x1350
+- Final output: single flattened image (no transparency)
+- Mobile readability required
+- Keep all critical text inside safe margins (at least 8% inset from edges)
+
+[VISUAL STYLE]
+- High-end athletic marketing poster aesthetic
+- Black textured/grunge background
+- Orange, gold, white, and subtle gray accents
+- Bold fitness typography
+- Strong visual hierarchy
+- Dynamic but organized composition
+- Clean layout with minimal clutter
+- Premium modern gym branding look
+
+[DATA FIELDS TO USE]
+- {business_logo_url}
+- {class_name}
+- {tagline}
+- {class_date}
+- {class_start_time}
+- {class_end_time}
+- {class_location}
+- {coach_name}
+- {coach_image_url}
+- {footer_message}
+- {station_count}
+- {rounds_per_station}
+- {work_interval_time}
+- {rest_interval_time}
+- {station_transition_time}
+- {warmup_time}
+- {cooldown_time}
+- {total_workout_time}
+- {stations} (ordered list where each station has: station_number, workout_type)
+
+[LAYOUT]
+
+Top Left:
+- Place business logo from {business_logo_url}.
+- Preserve logo proportions, colors, and text exactly.
+- Do not distort or recolor logo.
+
+Top Center:
+- Small badge text: "HIIT CLASS"
+- Large class title: {class_name}
+- Subtitle/tagline below title: {tagline}
+
+Class Info Row (horizontal, clean separators):
+- {class_date}
+- {class_start_time}
+- {class_location}
+
+Top Right Feature:
+- Use {coach_image_url} as the dominant coach image.
+- Remove background cleanly and blend naturally into dark background.
+- If clean cutout is not possible, use a soft masked crop with premium finish.
+- Small label above image: "HEAD COACH"
+- Coach name below image: {coach_name}
+
+Left-Middle Workout Table:
+Include ONLY these columns:
+1) Station Number
+2) Workout Type
+3) Workout Type Illustration
+
+Table rules:
+- Use ordered rows from {stations}
+- One row per station
+- Illustration must be a simple monochrome line-style exercise icon matching workout type
+- No extra columns or extra explanatory text
+
+Right-Side Vertical Panels:
+
+Panel 1 - SESSION OVERVIEW
+- Total stations: {station_count}
+- Rounds per station: {rounds_per_station}
+- Work interval: {work_interval_time}
+- Rest interval: {rest_interval_time}
+- Station transition: {station_transition_time}
+
+Panel 2 - TIMING
+- Warm-up: {warmup_time}
+- Cool-down: {cooldown_time}
+- Total workout time: {total_workout_time}
+- Class start/end: {class_start_time} - {class_end_time}
+
+Footer (bottom section):
+- Display exactly: {footer_message}
+
+[ROBUSTNESS / FALLBACK RULES]
+- If logo is missing, hide logo block and rebalance top layout.
+- If coach image is missing, replace feature image area with branded abstract shape and keep coach name text.
+- If {class_name} is long, wrap to max 2 lines then reduce font size; avoid overflow.
+- If {tagline} is long, wrap to max 2 lines; avoid overlap.
+- If station list is long, compress row height and font while preserving readability.
+- Maintain balanced composition even when optional assets are missing.
+
+[DESIGN RULES]
+- Keep layout clean and modern
+- Avoid overcrowding
+- Maintain strong alignment and spacing
+- Use subtle glow/highlight effects sparingly
+- Ensure typography is sharp and readable
+- Use strong contrast between black background and orange/white text
+- No third-party logos, no unsafe or graphic imagery
+- Final image should look like a professional HIIT event poster template suitable for repeated automated generation
