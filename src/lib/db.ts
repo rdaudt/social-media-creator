@@ -58,6 +58,8 @@ export async function bootstrapSchema(): Promise<void> {
       title TEXT NOT NULL,
       platform TEXT NOT NULL,
       format TEXT NOT NULL,
+      template_family_id TEXT,
+      template_version INTEGER NOT NULL DEFAULT 1,
       prompt_text TEXT NOT NULL,
       default_options_json TEXT,
       is_active INTEGER NOT NULL DEFAULT 1,
@@ -66,6 +68,19 @@ export async function bootstrapSchema(): Promise<void> {
       updated_at TEXT NOT NULL
     )`
   ], "write");
+
+  await ensurePromptTemplateColumns();
+}
+
+async function ensurePromptTemplateColumns(): Promise<void> {
+  const cols = await db.execute({ sql: `PRAGMA table_info(prompt_templates)`, args: [] });
+  const names = new Set(cols.rows.map((row) => String(row.name)));
+  if (!names.has("template_family_id")) {
+    await db.execute({ sql: `ALTER TABLE prompt_templates ADD COLUMN template_family_id TEXT`, args: [] });
+  }
+  if (!names.has("template_version")) {
+    await db.execute({ sql: `ALTER TABLE prompt_templates ADD COLUMN template_version INTEGER NOT NULL DEFAULT 1`, args: [] });
+  }
 }
 
 export function nowIso(): string {

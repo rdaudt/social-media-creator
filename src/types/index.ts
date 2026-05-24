@@ -68,6 +68,8 @@ export type BootstrapTemplate = {
   title: string;
   platform: string;
   format: string;
+  templateFamilyId: string | null;
+  templateVersion: number;
   promptText: string;
   defaultOptionsJson: string | null;
 };

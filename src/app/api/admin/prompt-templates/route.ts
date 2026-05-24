@@ -15,13 +15,14 @@ export async function POST(req: Request) {
     const body = parsed.data;
     const now = nowIso();
     const id = newId("tpl");
+    const templateFamilyId = id;
     await db.execute({
       sql: `INSERT INTO prompt_templates
-            (id, title, platform, format, prompt_text, default_options_json, is_active, created_by_admin_sub, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      args: [id, body.title, body.platform, body.format, body.promptText, JSON.stringify(body.defaultOptions ?? {}), body.isActive === false ? 0 : 1, admin.sub, now, now]
+            (id, title, platform, format, template_family_id, template_version, prompt_text, default_options_json, is_active, created_by_admin_sub, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?)`,
+      args: [id, body.title, body.platform, body.format, templateFamilyId, body.promptText, JSON.stringify(body.defaultOptions ?? {}), body.isActive === false ? 0 : 1, admin.sub, now, now]
     });
-    return NextResponse.json({ id }, { status: 201 });
+    return NextResponse.json({ id, templateFamilyId, templateVersion: 1 }, { status: 201 });
   } catch (error) {
     return authErrorResponse(error) ?? NextResponse.json({ error: "internal_error" }, { status: 500 });
   }

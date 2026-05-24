@@ -18,7 +18,7 @@ export async function GET(req: Request) {
     if (format) { where.push("format = ?"); args.push(format); }
 
     const res = await db.execute({
-      sql: `SELECT id, title, platform, format, prompt_text, default_options_json
+      sql: `SELECT id, title, platform, format, template_family_id, template_version, prompt_text, default_options_json
             FROM prompt_templates WHERE ${where.join(" AND ")} ORDER BY updated_at DESC`,
       args
     });

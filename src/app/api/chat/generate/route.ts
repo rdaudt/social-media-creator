@@ -34,12 +34,31 @@ export async function POST(req: Request) {
     if (!session.rows[0]) return NextResponse.json({ error: "session_not_found" }, { status: 404 });
 
     let templatePrompt = "";
+    let templateMeta: { id: string; platform: string; format: string; templateFamilyId: string | null; templateVersion: number } | null = null;
     if (body.promptTemplateId) {
       const tpl = await db.execute({
-        sql: `SELECT prompt_text FROM prompt_templates WHERE id = ? AND is_active = 1 LIMIT 1`,
+        sql: `SELECT id, platform, format, template_family_id, template_version, prompt_text
+              FROM prompt_templates WHERE id = ? AND is_active = 1 LIMIT 1`,
         args: [body.promptTemplateId]
       });
+      templateMeta = tpl.rows[0] ? {
+        id: String(tpl.rows[0].id),
+        platform: String(tpl.rows[0].platform),
+        format: String(tpl.rows[0].format),
+        templateFamilyId: tpl.rows[0].template_family_id == null ? null : String(tpl.rows[0].template_family_id),
+        templateVersion: Number(tpl.rows[0].template_version ?? 1)
+      } : null;
       templatePrompt = String(tpl.rows[0]?.prompt_text ?? "");
+      if (!templatePrompt) {
+        return NextResponse.json({ error: "template_not_found" }, { status: 404 });
+      }
+    }
+
+    if (body.platform !== "instagram") {
+      return NextResponse.json({ error: "unsupported_platform" }, { status: 400 });
+    }
+    if (templateMeta && templateMeta.platform !== "instagram") {
+      return NextResponse.json({ error: "template_platform_mismatch" }, { status: 400 });
     }
 
     const ownedAssetUrls: string[] = [];
@@ -67,16 +86,61 @@ export async function POST(req: Request) {
       body.locationId ?? bootstrap.defaults.selectedLocationId,
       body.classId ?? bootstrap.defaults.selectedClassId
     );
-    const assembledPrompt = `${templatePrompt}\n\nFormat: ${body.format}\nUser message: ${body.message}\nOptions: ${JSON.stringify(body.options ?? {})}\n\n${context}`;
+    const history = await db.execute({
+      sql: `SELECT role, content FROM chat_messages WHERE session_id = ? ORDER BY created_at DESC LIMIT 8`,
+      args: [body.sessionId]
+    });
+    const recentHistory = history.rows
+      .reverse()
+      .map((row) => `${String(row.role)}: ${String(row.content)}`)
+      .join("\n");
+
+    const outputSpec = resolveOutputSpec(body.format, body.aspectRatio, body.outputPreset);
+    const assembledPrompt = [
+      "SYSTEM/ROLE",
+      "You are creating a high-quality social image for a fitness coach. Follow the user prompt exactly while preserving coach context.",
+      "",
+      "ADMIN_SEED_PROMPT",
+      templatePrompt || "No template selected.",
+      "",
+      "USER_CREATIVE_INTENT",
+      body.message,
+      "",
+      "CONTEXT_JSON",
+      JSON.stringify({
+        platform: body.platform,
+        options: body.options ?? {},
+        outputSpec,
+        coachContext: context
+      }, null, 2),
+      "",
+      "CONVERSATION_HISTORY",
+      recentHistory || "No previous conversation."
+    ].join("\n");
 
     userMessageId = newId("msg");
     const ts = nowIso();
     const start = Date.now();
+    const latestTemplateId = await getLatestTemplateId(body.sessionId);
+    const templateSwitchFromId = latestTemplateId && body.promptTemplateId && latestTemplateId !== body.promptTemplateId ? latestTemplateId : null;
+    const promptEnvelope = {
+      platform: body.platform,
+      format: body.format,
+      outputSpec,
+      promptTemplateId: body.promptTemplateId ?? null,
+      templateVersion: templateMeta?.templateVersion ?? null,
+      templateFamilyId: templateMeta?.templateFamilyId ?? null,
+      templateSwitchFromId
+    };
 
     await db.execute({
       sql: `INSERT INTO chat_messages (id, session_id, role, content, attachments_json, created_at, parent_message_id)
             VALUES (?, ?, 'user', ?, ?, ?, ?)`,
-      args: [userMessageId, body.sessionId, body.message, JSON.stringify({ selectedAssetIds: body.selectedAssetIds, tempUploadRefs: body.tempUploadRefs }), ts, body.parentMessageId ?? null]
+      args: [userMessageId, body.sessionId, body.message, JSON.stringify({
+        selectedAssetIds: body.selectedAssetIds,
+        tempUploadRefs: body.tempUploadRefs,
+        promptEnvelope
+      }), ts, body.parentMessageId ?? null]
     });
 
     const generated = await generateImageWithContext(assembledPrompt, [...ownedAssetUrls, ...body.tempUploadRefs]);
@@ -88,7 +152,8 @@ export async function POST(req: Request) {
     const metadata = {
       image: { signedUrl: blob.url, expiresAt: new Date(Date.now() + 3600_000).toISOString() },
       usage: { inputTokens: generated.usage.input, outputTokens: generated.usage.output, estimatedCost, durationMs, model: generated.model },
-      format: body.format
+      outputSpec,
+      promptEnvelope
     };
 
     await db.batch([
@@ -117,4 +182,39 @@ export async function POST(req: Request) {
 
 function nowIso(): string {
   return new Date().toISOString();
+}
+
+function resolveOutputSpec(format: "square" | "portrait" | "story", aspectRatio?: "1:1" | "4:5" | "9:16", outputPreset?: "ig_square_1080" | "ig_portrait_1080x1350" | "ig_story_1080x1920") {
+  const fallback = format === "portrait"
+    ? { outputPreset: "ig_portrait_1080x1350", aspectRatio: "4:5", width: 1080, height: 1350 }
+    : format === "story"
+      ? { outputPreset: "ig_story_1080x1920", aspectRatio: "9:16", width: 1080, height: 1920 }
+      : { outputPreset: "ig_square_1080", aspectRatio: "1:1", width: 1080, height: 1080 };
+
+  if (!outputPreset && !aspectRatio) return fallback;
+  return {
+    outputPreset: outputPreset ?? fallback.outputPreset,
+    aspectRatio: aspectRatio ?? fallback.aspectRatio,
+    width: fallback.width,
+    height: fallback.height
+  };
+}
+
+async function getLatestTemplateId(sessionId: string): Promise<string | null> {
+  const row = await db.execute({
+    sql: `SELECT attachments_json
+          FROM chat_messages
+          WHERE session_id = ? AND role = 'user'
+          ORDER BY created_at DESC
+          LIMIT 1`,
+    args: [sessionId]
+  });
+  const raw = row.rows[0]?.attachments_json;
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(String(raw)) as { promptEnvelope?: { promptTemplateId?: string | null } };
+    return parsed.promptEnvelope?.promptTemplateId ?? null;
+  } catch {
+    return null;
+  }
 }

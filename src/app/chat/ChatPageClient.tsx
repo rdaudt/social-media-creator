@@ -13,6 +13,7 @@ export default function ChatPageClient() {
   const [selectedLocationId, setSelectedLocationId] = useState<string>("");
   const [selectedClassId, setSelectedClassId] = useState<string>("");
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
+  const [selectedFormat, setSelectedFormat] = useState<"square" | "portrait" | "story">("square");
   const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>([]);
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
@@ -53,7 +54,9 @@ export default function ChatPageClient() {
         promptTemplateId: selectedTemplateId || undefined,
         locationId: selectedLocationId || undefined,
         classId: selectedClassId || undefined,
-        format: "square",
+        platform: "instagram",
+        format: selectedFormat,
+        outputPreset: selectedFormat === "portrait" ? "ig_portrait_1080x1350" : selectedFormat === "story" ? "ig_story_1080x1920" : "ig_square_1080",
         selectedAssetIds,
         tempUploadRefs: []
       })
@@ -129,6 +132,12 @@ export default function ChatPageClient() {
           {(bootstrap?.templates ?? []).map((tpl) => (
             <option key={tpl.id} value={tpl.id}>{tpl.title}</option>
           ))}
+        </select>
+        <h3 style={{ marginTop: 10 }}>Format</h3>
+        <select value={selectedFormat} onChange={(e) => setSelectedFormat(e.target.value as "square" | "portrait" | "story")}>
+          <option value="square">Square (1080x1080)</option>
+          <option value="portrait">Portrait (1080x1350)</option>
+          <option value="story">Story (1080x1920)</option>
         </select>
         <h3 style={{ marginTop: 10 }}>Assets</h3>
         <div style={{ maxHeight: 160, overflowY: "auto" }}>

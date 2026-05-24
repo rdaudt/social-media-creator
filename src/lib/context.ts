@@ -86,7 +86,7 @@ export async function getCoachBootstrap(ownerEmail: string, ownerSub: string): P
     args: [ownerSub]
   });
   const templatesRes = await db.execute({
-    sql: `SELECT id, title, platform, format, prompt_text, default_options_json
+    sql: `SELECT id, title, platform, format, template_family_id, template_version, prompt_text, default_options_json
           FROM prompt_templates
           WHERE is_active = 1
           ORDER BY updated_at DESC`,
@@ -139,6 +139,8 @@ export async function getCoachBootstrap(ownerEmail: string, ownerSub: string): P
       title: String(r.title),
       platform: String(r.platform),
       format: String(r.format),
+      templateFamilyId: asStringOrNull(r.template_family_id),
+      templateVersion: asNumber(r.template_version, 1),
       promptText: String(r.prompt_text),
       defaultOptionsJson: asStringOrNull(r.default_options_json)
     })),
