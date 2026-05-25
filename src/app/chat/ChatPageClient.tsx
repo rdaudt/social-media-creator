@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import type { ChatBootstrapResponse } from "@/types";
 
-type Session = { id: string; title: string };
 type Message = { id: string; role: string; content: string; generation_metadata_json?: string; attachments_json?: string };
 type TempUploadResponseItem = { url: string; name?: string };
 const WORKOUT_WARRIOR_TEMPLATE_TITLES = new Set([
@@ -13,8 +12,6 @@ const WORKOUT_WARRIOR_TEMPLATE_TITLES = new Set([
 
 export default function ChatPageClient() {
   const [activeTab, setActiveTab] = useState<"chat" | "prompt">("chat");
-  const [sessions, setSessions] = useState<Session[]>([]);
-  const [sessionId, setSessionId] = useState<string>("");
   const [bootstrap, setBootstrap] = useState<ChatBootstrapResponse | null>(null);
   const [selectedLocationId, setSelectedLocationId] = useState<string>("");
   const [selectedClassId, setSelectedClassId] = useState<string>("");
@@ -33,24 +30,11 @@ export default function ChatPageClient() {
   const [generationStatus, setGenerationStatus] = useState<string>("");
   const [generationError, setGenerationError] = useState<string>("");
 
-  function mergeSessionsById(list: Session[]): Session[] {
-    const seen = new Set<string>();
-    const merged: Session[] = [];
-    for (const item of list) {
-      if (seen.has(item.id)) continue;
-      seen.add(item.id);
-      merged.push(item);
-    }
-    return merged;
-  }
-
   useEffect(() => {
     void fetch("/api/chat/bootstrap")
       .then((r) => r.json())
       .then((d: ChatBootstrapResponse) => {
         setBootstrap(d);
-        setSessions(mergeSessionsById((d.sessions ?? []).map((s) => ({ id: s.id, title: s.title }))));
-        setSessionId(d.sessions?.[0]?.id ?? "");
         setSelectedLocationId(d.defaults?.selectedLocationId ?? "");
         if (d.templates?.[0]) {
           setSelectedTemplateId(d.templates[0].id);
@@ -59,20 +43,13 @@ export default function ChatPageClient() {
       });
   }, []);
 
-  useEffect(() => {
-    if (!sessionId) return;
-    void fetch(`/api/chat/sessions/${sessionId}/messages`).then((r) => r.json()).then((d) => setMessages(d.messages ?? []));
-  }, [sessionId]);
-
-  async function createSession(title = "New session"): Promise<string | null> {
+  async function createSession(title = "Single run"): Promise<string | null> {
     const res = await fetch("/api/chat/sessions", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ title }) });
     const data = await res.json();
     if (!res.ok || typeof data.id !== "string") {
       setGenerationError("Could not create a chat session. Please try again.");
       return null;
     }
-    setSessionId(data.id);
-    setSessions((p) => mergeSessionsById([{ id: data.id, title: data.title }, ...p]));
     return data.id;
   }
 
@@ -101,7 +78,7 @@ export default function ChatPageClient() {
       }
     }
 
-    const activeSessionId = sessionId || await createSession("New session");
+    const activeSessionId = await createSession("Generate image");
     if (!activeSessionId) return;
 
     setIsGenerating(true);
@@ -140,15 +117,8 @@ export default function ChatPageClient() {
           ? payload.error.message
           : typeof payload?.error === "string"
             ? payload.error
-          : "Image generation failed.";
+            : "Image generation failed.";
         setGenerationError(errorMessage);
-      } else {
-        setMessage("");
-        setTempUploadRefs([]);
-        setTempUploadNames([]);
-        setAttendeeName("");
-        setAttendeeImageRef("");
-        setAttendeeImageName("");
       }
       const d = await fetch(`/api/chat/sessions/${activeSessionId}/messages`).then((r) => r.json());
       setMessages(d.messages ?? []);
@@ -189,11 +159,6 @@ export default function ChatPageClient() {
     setSelectedTemplateId(templateId);
     const selected = (bootstrap?.templates ?? []).find((tpl) => tpl.id === templateId);
     setMessage(selected?.promptText ?? "");
-    if (!WORKOUT_WARRIOR_TEMPLATE_TITLES.has(selected?.title?.trim().toLowerCase() ?? "")) {
-      setAttendeeName("");
-      setAttendeeImageRef("");
-      setAttendeeImageName("");
-    }
   }
 
   async function submitDownloadPrompt() {
@@ -221,7 +186,7 @@ export default function ChatPageClient() {
       }
     }
 
-    const activeSessionId = sessionId || await createSession("New session");
+    const activeSessionId = await createSession("Download prompt");
     if (!activeSessionId) return;
 
     setIsDownloadingPrompt(true);
@@ -291,7 +256,7 @@ export default function ChatPageClient() {
 
   async function uploadReferenceFiles(files: FileList | null) {
     if (!files?.length) return;
-    const activeSessionId = sessionId || await createSession("New session");
+    const activeSessionId = await createSession("Upload references");
     if (!activeSessionId) return;
 
     setGenerationError("");
@@ -322,7 +287,7 @@ export default function ChatPageClient() {
 
   async function uploadAttendeeImage(file: File | null) {
     if (!file) return;
-    const activeSessionId = sessionId || await createSession("New session");
+    const activeSessionId = await createSession("Upload attendee image");
     if (!activeSessionId) return;
 
     setGenerationError("");
@@ -382,7 +347,7 @@ export default function ChatPageClient() {
   return (
     <div className="grid grid-2">
       <section className="card" style={{ gridColumn: "1 / span 2", display: "flex", gap: 8 }}>
-        <button onClick={() => setActiveTab("chat")} disabled={activeTab === "chat"}>Chat</button>
+        <button onClick={() => setActiveTab("chat")} disabled={activeTab === "chat"}>Image description</button>
         <button onClick={() => setActiveTab("prompt")} disabled={activeTab === "prompt"}>Prompt Debug</button>
       </section>
       <section className="card">
@@ -458,83 +423,63 @@ export default function ChatPageClient() {
         ) : null}
       </section>
       <section className="card">
-        <h2>Sessions</h2>
-        <button onClick={() => void createSession()}>New Session</button>
-        <div style={{ marginTop: 12 }}>
-          {sessions.map((s) => (
-            <div key={s.id}>
-              <button
-                onClick={() => setSessionId(s.id)}
-                style={{
-                  marginBottom: 6,
-                  opacity: s.id === sessionId ? 1 : 0.85,
-                  fontWeight: s.id === sessionId ? 700 : 500
-                }}
-              >
-                {s.title}
-              </button>
-            </div>
-          ))}
-        </div>
         <div style={{ marginTop: 16 }}>
           {activeTab === "chat" ? (
             <>
-        <h2>Chat</h2>
-        <textarea
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          rows={16}
-          placeholder="Describe the image you want to generate"
-          style={{ width: "100%", minHeight: 360, resize: "vertical" }}
-        />
-        <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
-          <button onClick={submitGenerate} disabled={isGenerating}>{isGenerating ? "Generating..." : "Generate"}</button>
-          <button onClick={submitDownloadPrompt} disabled={isGenerating || isDownloadingPrompt}>
-            {isDownloadingPrompt ? "Preparing..." : "Download LLM Message"}
-          </button>
-        </div>
-        {generationStatus ? <p style={{ marginTop: 8 }}>{generationStatus}</p> : null}
-        {generationError ? <p style={{ marginTop: 8, color: "#9b1c1c" }}>{generationError}</p> : null}
-        <div style={{ marginTop: 12 }}>
-          {messages.map((m) => {
-            const meta = m.generation_metadata_json ? JSON.parse(m.generation_metadata_json) : null;
-            return (
-              <article key={m.id} className="card">
-                <strong>{m.role}</strong>
-                <p>{m.content}</p>
-                {meta?.image?.signedUrl ? <img src={meta.image.signedUrl} alt="generated" style={{ width: "100%", borderRadius: 8 }} /> : null}
-                {meta?.image?.signedUrl ? <p><a href={meta.image.signedUrl} download>Download</a> <small>Expires {new Date(meta.image.expiresAt).toLocaleString()}</small></p> : null}
-                {meta?.usage ? (
-                  <small>
-                    {(meta.usage.imageModel ?? meta.usage.model)}
-                    {meta.usage.orchestratorModel && meta.usage.orchestratorModel !== (meta.usage.imageModel ?? meta.usage.model)
-                      ? ` (via ${meta.usage.orchestratorModel})`
-                      : ""}
-                    {" "} - ${meta.usage.estimatedCost} - {meta.usage.durationMs}ms
-                  </small>
-                ) : null}
-              </article>
-            );
-          })}
-        </div>
+              <h2>Image description</h2>
+              <textarea
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                rows={16}
+                placeholder="Describe the image you want to generate"
+                style={{ width: "100%", minHeight: 360, resize: "vertical" }}
+              />
+              <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
+                <button onClick={submitGenerate} disabled={isGenerating}>{isGenerating ? "Generating..." : "Generate"}</button>
+                <button onClick={submitDownloadPrompt} disabled={isGenerating || isDownloadingPrompt}>
+                  {isDownloadingPrompt ? "Preparing..." : "Download LLM Message"}
+                </button>
+              </div>
+              {generationStatus ? <p style={{ marginTop: 8 }}>{generationStatus}</p> : null}
+              {generationError ? <p style={{ marginTop: 8, color: "#9b1c1c" }}>{generationError}</p> : null}
+              <div style={{ marginTop: 12 }}>
+                {messages.slice(-1).map((m) => {
+                  const meta = m.generation_metadata_json ? JSON.parse(m.generation_metadata_json) : null;
+                  return (
+                    <article key={m.id} className="card">
+                      {meta?.image?.signedUrl ? <img src={meta.image.signedUrl} alt="generated" style={{ width: "100%", borderRadius: 8 }} /> : null}
+                      {meta?.image?.signedUrl ? <p><a href={meta.image.signedUrl} download>Download</a> <small>Expires {new Date(meta.image.expiresAt).toLocaleString()}</small></p> : null}
+                      {meta?.usage ? (
+                        <small>
+                          {(meta.usage.imageModel ?? meta.usage.model)}
+                          {meta.usage.orchestratorModel && meta.usage.orchestratorModel !== (meta.usage.imageModel ?? meta.usage.model)
+                            ? ` (via ${meta.usage.orchestratorModel})`
+                            : ""}
+                          {" "} - ${meta.usage.estimatedCost} - {meta.usage.durationMs}ms
+                        </small>
+                      ) : null}
+                    </article>
+                  );
+                })}
+              </div>
             </>
           ) : (
             <>
-            <h2>Prompt Debug</h2>
-            <p>Complete prompt sent to the LLM for the latest generation request in this session.</p>
-            <textarea
-              readOnly
-              value={assembledPrompt || "No assembled prompt found yet for this session."}
-              rows={20}
-              style={{ width: "100%", whiteSpace: "pre-wrap" }}
-            />
-            <h3>JSON Context</h3>
-            <textarea
-              readOnly
-              value={generationContextText || "No JSON context found yet for this session."}
-              rows={14}
-              style={{ width: "100%", whiteSpace: "pre-wrap" }}
-            />
+              <h2>Prompt Debug</h2>
+              <p>Complete prompt sent to the LLM for the latest generation request.</p>
+              <textarea
+                readOnly
+                value={assembledPrompt || "No assembled prompt found yet for the latest request."}
+                rows={20}
+                style={{ width: "100%", whiteSpace: "pre-wrap" }}
+              />
+              <h3>JSON Context</h3>
+              <textarea
+                readOnly
+                value={generationContextText || "No JSON context found yet for the latest request."}
+                rows={14}
+                style={{ width: "100%", whiteSpace: "pre-wrap" }}
+              />
             </>
           )}
         </div>
