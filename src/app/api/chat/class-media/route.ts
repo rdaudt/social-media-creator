@@ -15,12 +15,48 @@ function sanitizeSegment(value: string): string {
   return value.replace(/[^a-zA-Z0-9_-]/g, "_");
 }
 
-async function assertOwnedClass(userSub: string, classId: string): Promise<boolean> {
+function isAllowedBlobHost(hostname: string): boolean {
+  return hostname.endsWith(".blob.vercel-storage.com");
+}
+
+async function getTenantIdForUserEmail(userEmail: string): Promise<string | null> {
+  const tenant = await db.execute({
+    sql: `SELECT id FROM coach_tenants WHERE lower(owner_email) = ? LIMIT 1`,
+    args: [userEmail.trim().toLowerCase()]
+  });
+  return tenant.rows[0]?.id == null ? null : String(tenant.rows[0].id);
+}
+
+async function assertAccessibleClass(userSub: string, userEmail: string, classId: string): Promise<boolean> {
+  const tenantId = await getTenantIdForUserEmail(userEmail);
   const owned = await db.execute({
-    sql: `SELECT id FROM coach_hiit_classes WHERE id = ? AND coach_google_sub = ? LIMIT 1`,
-    args: [classId, userSub]
+    sql: `SELECT id
+          FROM coach_hiit_classes
+          WHERE id = ?
+            AND (coach_google_sub = ? OR (? IS NOT NULL AND tenant_id = ?))
+          LIMIT 1`,
+    args: [classId, userSub, tenantId, tenantId]
   });
   return Boolean(owned.rows[0]);
+}
+
+function resolveBlobSourceUrl(rawUrl: string): string {
+  const parsed = new URL(rawUrl);
+
+  if (isAllowedBlobHost(parsed.hostname) && (parsed.protocol === "https:" || parsed.protocol === "http:")) {
+    return parsed.toString();
+  }
+
+  if (parsed.pathname === "/api/blob") {
+    const nested = parsed.searchParams.get("url");
+    if (!nested) throw new Error("invalid_generated_image_url");
+    const nestedUrl = new URL(nested);
+    if (!isAllowedBlobHost(nestedUrl.hostname)) throw new Error("disallowed_generated_image_host");
+    if (nestedUrl.protocol !== "https:" && nestedUrl.protocol !== "http:") throw new Error("invalid_generated_image_protocol");
+    return nestedUrl.toString();
+  }
+
+  throw new Error("disallowed_generated_image_host");
 }
 
 export async function GET(req: Request) {
@@ -30,7 +66,7 @@ export async function GET(req: Request) {
     const classId = new URL(req.url).searchParams.get("classId") ?? "";
     if (!classId) return NextResponse.json({ error: "class_id_required" }, { status: 400 });
 
-    const classOwned = await assertOwnedClass(user.sub, classId);
+    const classOwned = await assertAccessibleClass(user.sub, user.email, classId);
     if (!classOwned) return NextResponse.json({ error: "forbidden" }, { status: 403 });
 
     const res = await db.execute({
@@ -68,12 +104,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "invalid_payload" }, { status: 400 });
     }
 
-    const classOwned = await assertOwnedClass(user.sub, classId);
+    const classOwned = await assertAccessibleClass(user.sub, user.email, classId);
     if (!classOwned) return NextResponse.json({ error: "forbidden" }, { status: 403 });
 
-    const sourceUrl = new URL(generatedImageUrl);
+    const resolvedBlobSource = resolveBlobSourceUrl(generatedImageUrl);
+    const sourceUrl = new URL(resolvedBlobSource);
     const srcHeaders = new Headers();
-    if (sourceUrl.hostname.endsWith(".blob.vercel-storage.com") && process.env.BLOB_READ_WRITE_TOKEN) {
+    if (process.env.BLOB_READ_WRITE_TOKEN) {
       srcHeaders.set("Authorization", `Bearer ${process.env.BLOB_READ_WRITE_TOKEN}`);
     }
 
@@ -83,7 +120,7 @@ export async function POST(req: Request) {
     const contentType = normalizeImageContentType(fetchRes.headers.get("content-type"));
     if (!contentType) return NextResponse.json({ error: "unsupported_source_type" }, { status: 400 });
 
-    const digest = createHash("sha256").update(generatedImageUrl).digest("hex").slice(0, 24);
+    const digest = createHash("sha256").update(resolvedBlobSource).digest("hex").slice(0, 24);
     const ext = contentType === "image/jpeg" ? "jpg" : contentType === "image/webp" ? "webp" : "png";
     const mediaId = `class_media_${digest}`;
     const permanentPath = `class-media/${sanitizeSegment(user.sub)}/${sanitizeSegment(classId)}/${mediaId}.${ext}`;
@@ -121,6 +158,13 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ media: { id, classId, blobUrl: blob.url, createdAt, sourceMessageId } }, { status: 201 });
   } catch (error) {
+    if (error instanceof Error && (
+      error.message === "invalid_generated_image_url" ||
+      error.message === "disallowed_generated_image_host" ||
+      error.message === "invalid_generated_image_protocol"
+    )) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     const authResponse = authErrorResponse(error);
     if (authResponse) return authResponse;
     return NextResponse.json({ error: "internal_error" }, { status: 500 });
