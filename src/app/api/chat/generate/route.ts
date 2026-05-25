@@ -28,9 +28,11 @@ type GenerationContextJson = {
   selectedLocation: CoachLocation | null;
   imageReferences: {
     coach_photo_url: string | null;
+    coach_image_url: string | null;
     business_logo_url: string | null;
     location_logo_url: string | null;
     attendee_name: string | null;
+    attendee_image_url: string | null;
     attendee_photo_url: string | null;
     user_uploaded_images: string[];
     selected_asset_urls: string[];
@@ -198,9 +200,11 @@ export async function POST(req: Request) {
       selectedLocation,
       imageReferences: {
         coach_photo_url: stagedImages.find((img) => img.role === "coach_photo_url")?.url ?? null,
+        coach_image_url: stagedImages.find((img) => img.role === "coach_photo_url")?.url ?? null,
         business_logo_url: stagedImages.find((img) => img.role === "business_logo_url")?.url ?? null,
         location_logo_url: stagedImages.find((img) => img.role === "location_logo_url")?.url ?? null,
         attendee_name: body.attendeeName ?? null,
+        attendee_image_url: stagedImages.find((img) => img.role === "attendee_photo_url")?.url ?? null,
         attendee_photo_url: stagedImages.find((img) => img.role === "attendee_photo_url")?.url ?? null,
         user_uploaded_images: stagedImages.filter((img) => img.role === "user_uploaded_image").map((img) => img.url),
         selected_asset_urls: stagedImages.filter((img) => img.role === "selected_asset").map((img) => img.url)
