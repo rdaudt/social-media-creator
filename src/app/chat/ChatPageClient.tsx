@@ -21,6 +21,9 @@ export default function ChatPageClient() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [tempUploadRefs, setTempUploadRefs] = useState<string[]>([]);
   const [tempUploadNames, setTempUploadNames] = useState<string[]>([]);
+  const [attendeeName, setAttendeeName] = useState("");
+  const [attendeeImageRef, setAttendeeImageRef] = useState<string>("");
+  const [attendeeImageName, setAttendeeImageName] = useState<string>("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationStatus, setGenerationStatus] = useState<string>("");
   const [generationError, setGenerationError] = useState<string>("");
@@ -59,6 +62,8 @@ export default function ChatPageClient() {
 
   async function submitGenerate() {
     if (!message.trim() || isGenerating) return;
+    const selectedTemplate = (bootstrap?.templates ?? []).find((tpl) => tpl.id === selectedTemplateId);
+    const isWorkoutWarriorTemplate = selectedTemplate?.title?.trim().toLowerCase() === "ig hiit workout warrior";
     const selectedClass = (bootstrap?.classes ?? []).find((klass) => klass.id === selectedClassId);
     if (!selectedClass) {
       setGenerationError("Select a HIIT class before generating an image.");
@@ -67,6 +72,16 @@ export default function ChatPageClient() {
     if (!selectedClass.classDate || !(selectedClass.startTime ?? selectedClass.ranAt)) {
       setGenerationError("The selected HIIT class needs a date and start time before image generation.");
       return;
+    }
+    if (isWorkoutWarriorTemplate) {
+      if (!attendeeName.trim()) {
+        setGenerationError("Enter the attendee name for IG HIIT Workout Warrior.");
+        return;
+      }
+      if (!attendeeImageRef) {
+        setGenerationError("Upload the attendee image for IG HIIT Workout Warrior.");
+        return;
+      }
     }
 
     const activeSessionId = sessionId || await createSession("New session");
@@ -91,6 +106,8 @@ export default function ChatPageClient() {
           sessionId: activeSessionId,
           message,
           promptTemplateId: selectedTemplateId || undefined,
+          attendeeName: attendeeName.trim() || undefined,
+          attendeeImageRef: attendeeImageRef || undefined,
           locationId: selectedLocationId || undefined,
           classId: selectedClassId || undefined,
           platform: "instagram",
@@ -112,6 +129,9 @@ export default function ChatPageClient() {
         setMessage("");
         setTempUploadRefs([]);
         setTempUploadNames([]);
+        setAttendeeName("");
+        setAttendeeImageRef("");
+        setAttendeeImageName("");
       }
       const d = await fetch(`/api/chat/sessions/${activeSessionId}/messages`).then((r) => r.json());
       setMessages(d.messages ?? []);
@@ -152,6 +172,11 @@ export default function ChatPageClient() {
     setSelectedTemplateId(templateId);
     const selected = (bootstrap?.templates ?? []).find((tpl) => tpl.id === templateId);
     setMessage(selected?.promptText ?? "");
+    if (selected?.title?.trim().toLowerCase() !== "ig hiit workout warrior") {
+      setAttendeeName("");
+      setAttendeeImageRef("");
+      setAttendeeImageName("");
+    }
   }
 
   async function uploadReferenceFiles(files: FileList | null) {
@@ -185,6 +210,37 @@ export default function ChatPageClient() {
     setTempUploadNames((prev) => [...prev, ...uploads.map((upload) => String(upload.name ?? "Reference image"))]);
   }
 
+  async function uploadAttendeeImage(file: File | null) {
+    if (!file) return;
+    const activeSessionId = sessionId || await createSession("New session");
+    if (!activeSessionId) return;
+
+    setGenerationError("");
+    if (file.type !== "image/jpeg" && file.type !== "image/png") {
+      setGenerationError("Only JPG and PNG attendee images can be uploaded.");
+      return;
+    }
+
+    const form = new FormData();
+    form.set("sessionId", activeSessionId);
+    form.append("files", file);
+
+    const res = await fetch("/api/chat/generate", { method: "POST", body: form });
+    const payload = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setGenerationError("Attendee image upload failed.");
+      return;
+    }
+
+    const upload = Array.isArray(payload.uploads) ? payload.uploads[0] as TempUploadResponseItem | undefined : undefined;
+    if (!upload?.url) {
+      setGenerationError("Attendee image upload failed.");
+      return;
+    }
+    setAttendeeImageRef(String(upload.url));
+    setAttendeeImageName(String(upload.name ?? file.name ?? "Attendee image"));
+  }
+
   function toImageSrc(url: string | null | undefined): string | null {
     if (!url) return null;
     if (!url.includes(".blob.vercel-storage.com")) return url;
@@ -210,6 +266,8 @@ export default function ChatPageClient() {
   const generationContextText = promptEnvelope?.generationContextJson
     ? JSON.stringify(promptEnvelope.generationContextJson, null, 2)
     : "";
+  const selectedTemplate = (bootstrap?.templates ?? []).find((tpl) => tpl.id === selectedTemplateId);
+  const isWorkoutWarriorTemplate = selectedTemplate?.title?.trim().toLowerCase() === "ig hiit workout warrior";
 
   return (
     <div className="grid grid-2">
@@ -271,6 +329,23 @@ export default function ChatPageClient() {
         <h3 style={{ marginTop: 10 }}>Upload References</h3>
         <input type="file" accept="image/jpeg,image/png,.jpg,.jpeg,.png" multiple onChange={(e) => void uploadReferenceFiles(e.target.files)} />
         {tempUploadNames.length ? <small>{tempUploadNames.length} staged: {tempUploadNames.join(", ")}</small> : null}
+        {isWorkoutWarriorTemplate ? (
+          <>
+            <h3 style={{ marginTop: 10 }}>Workout Warrior Attendee</h3>
+            <input
+              type="text"
+              value={attendeeName}
+              onChange={(e) => setAttendeeName(e.target.value)}
+              placeholder="Attendee name"
+            />
+            <input
+              type="file"
+              accept="image/jpeg,image/png,.jpg,.jpeg,.png"
+              onChange={(e) => void uploadAttendeeImage(e.target.files?.[0] ?? null)}
+            />
+            {attendeeImageName ? <small>Staged attendee image: {attendeeImageName}</small> : null}
+          </>
+        ) : null}
       </section>
       <section className="card">
         <h2>Sessions</h2>

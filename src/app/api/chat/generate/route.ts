@@ -9,7 +9,7 @@ import { checkRateLimit } from "@/lib/rate-limit";
 import { generateSchema } from "@/lib/validation";
 import type { ChatBootstrapResponse, CoachHiitClass, CoachLocation, GenerateResponse } from "@/types";
 
-type StagedImageRole = "coach_photo_url" | "business_logo_url" | "location_logo_url" | "user_uploaded_image" | "selected_asset";
+type StagedImageRole = "coach_photo_url" | "business_logo_url" | "location_logo_url" | "user_uploaded_image" | "selected_asset" | "attendee_photo_url";
 type StagedImageReference = {
   role: StagedImageRole;
   url: string;
@@ -30,6 +30,8 @@ type GenerationContextJson = {
     coach_photo_url: string | null;
     business_logo_url: string | null;
     location_logo_url: string | null;
+    attendee_name: string | null;
+    attendee_photo_url: string | null;
     user_uploaded_images: string[];
     selected_asset_urls: string[];
   };
@@ -73,9 +75,10 @@ export async function POST(req: Request) {
     if (!session.rows[0]) return NextResponse.json({ error: "session_not_found" }, { status: 404 });
 
     let templateMeta: { id: string; platform: string; format: string; templateFamilyId: string | null; templateVersion: number } | null = null;
+    let templateTitle = "";
     if (body.promptTemplateId) {
       const tpl = await db.execute({
-        sql: `SELECT id, platform, format, template_family_id, template_version, prompt_text
+        sql: `SELECT id, title, platform, format, template_family_id, template_version, prompt_text
               FROM prompt_templates WHERE id = ? AND is_active = 1 LIMIT 1`,
         args: [body.promptTemplateId]
       });
@@ -86,9 +89,20 @@ export async function POST(req: Request) {
         templateFamilyId: tpl.rows[0].template_family_id == null ? null : String(tpl.rows[0].template_family_id),
         templateVersion: Number(tpl.rows[0].template_version ?? 1)
       } : null;
+      templateTitle = String(tpl.rows[0]?.title ?? "");
       const templatePrompt = String(tpl.rows[0]?.prompt_text ?? "");
       if (!templatePrompt) {
         return NextResponse.json({ error: "template_not_found" }, { status: 404 });
+      }
+    }
+
+    const isWorkoutWarriorTemplate = templateTitle.trim().toLowerCase() === "ig hiit workout warrior";
+    if (isWorkoutWarriorTemplate) {
+      if (!body.attendeeName) {
+        return validationError("attendee_name_required", "Provide the attendee name for the IG HIIT Workout Warrior template.");
+      }
+      if (!body.attendeeImageRef) {
+        return validationError("attendee_image_required", "Upload the attendee image for the IG HIIT Workout Warrior template.");
       }
     }
 
@@ -133,7 +147,17 @@ export async function POST(req: Request) {
 
     const stagedImages: StagedImageReference[] = [];
     const uploadRefs = body.tempUploadRefs.map((url) => validateTempUploadRef(url, body.sessionId));
+    const attendeeRef = body.attendeeImageRef ? validateTempUploadRef(body.attendeeImageRef, body.sessionId) : null;
     const expiresAt = new Date(Date.now() + 3600_000).toISOString();
+    if (attendeeRef) {
+      stagedImages.push({
+        role: "attendee_photo_url",
+        url: createSignedBlobAccessUrl(attendeeRef, publicOrigin, expiresAt),
+        blobUrl: attendeeRef,
+        source: "upload",
+        expiresAt
+      });
+    }
     stagedImages.push(...uploadRefs.map((blobUrl) => ({
       role: "user_uploaded_image" as const,
       url: createSignedBlobAccessUrl(blobUrl, publicOrigin, expiresAt),
@@ -176,6 +200,8 @@ export async function POST(req: Request) {
         coach_photo_url: stagedImages.find((img) => img.role === "coach_photo_url")?.url ?? null,
         business_logo_url: stagedImages.find((img) => img.role === "business_logo_url")?.url ?? null,
         location_logo_url: stagedImages.find((img) => img.role === "location_logo_url")?.url ?? null,
+        attendee_name: body.attendeeName ?? null,
+        attendee_photo_url: stagedImages.find((img) => img.role === "attendee_photo_url")?.url ?? null,
         user_uploaded_images: stagedImages.filter((img) => img.role === "user_uploaded_image").map((img) => img.url),
         selected_asset_urls: stagedImages.filter((img) => img.role === "selected_asset").map((img) => img.url)
       }
