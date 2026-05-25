@@ -33,12 +33,23 @@ export default function ChatPageClient() {
   const [generationStatus, setGenerationStatus] = useState<string>("");
   const [generationError, setGenerationError] = useState<string>("");
 
+  function mergeSessionsById(list: Session[]): Session[] {
+    const seen = new Set<string>();
+    const merged: Session[] = [];
+    for (const item of list) {
+      if (seen.has(item.id)) continue;
+      seen.add(item.id);
+      merged.push(item);
+    }
+    return merged;
+  }
+
   useEffect(() => {
     void fetch("/api/chat/bootstrap")
       .then((r) => r.json())
       .then((d: ChatBootstrapResponse) => {
         setBootstrap(d);
-        setSessions((d.sessions ?? []).map((s) => ({ id: s.id, title: s.title })));
+        setSessions(mergeSessionsById((d.sessions ?? []).map((s) => ({ id: s.id, title: s.title }))));
         setSessionId(d.sessions?.[0]?.id ?? "");
         setSelectedLocationId(d.defaults?.selectedLocationId ?? "");
         if (d.templates?.[0]) {
@@ -61,7 +72,7 @@ export default function ChatPageClient() {
       return null;
     }
     setSessionId(data.id);
-    setSessions((p) => [{ id: data.id, title: data.title }, ...p]);
+    setSessions((p) => mergeSessionsById([{ id: data.id, title: data.title }, ...p]));
     return data.id;
   }
 
@@ -452,14 +463,22 @@ export default function ChatPageClient() {
         <div style={{ marginTop: 12 }}>
           {sessions.map((s) => (
             <div key={s.id}>
-              <button onClick={() => setSessionId(s.id)}>{s.title}</button>
+              <button
+                onClick={() => setSessionId(s.id)}
+                style={{
+                  marginBottom: 6,
+                  opacity: s.id === sessionId ? 1 : 0.85,
+                  fontWeight: s.id === sessionId ? 700 : 500
+                }}
+              >
+                {s.title}
+              </button>
             </div>
           ))}
         </div>
-      </section>
-      <section className="card" style={{ gridColumn: "1 / span 2" }}>
-        {activeTab === "chat" ? (
-          <>
+        <div style={{ marginTop: 16 }}>
+          {activeTab === "chat" ? (
+            <>
         <h2>Chat</h2>
         <textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={4} placeholder="Describe the image you want to generate" />
         <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
@@ -492,9 +511,9 @@ export default function ChatPageClient() {
             );
           })}
         </div>
-          </>
-        ) : (
-          <>
+            </>
+          ) : (
+            <>
             <h2>Prompt Debug</h2>
             <p>Complete prompt sent to the LLM for the latest generation request in this session.</p>
             <textarea
@@ -510,8 +529,9 @@ export default function ChatPageClient() {
               rows={14}
               style={{ width: "100%", whiteSpace: "pre-wrap" }}
             />
-          </>
-        )}
+            </>
+          )}
+        </div>
       </section>
     </div>
   );
