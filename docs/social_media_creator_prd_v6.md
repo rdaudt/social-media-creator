@@ -354,6 +354,23 @@ Users may ONLY:
 - Access their own assets
 - Access their own generations
 
+### Canonical Coach Identity Key (Current Implementation Rule)
+
+For this application version, coach ownership and coach authorization SHALL be matched by normalized email using:
+
+`coach_tenants.owner_email`
+
+Normalization rule:
+- trim whitespace
+- lowercase comparison
+
+This normalized `owner_email` match SHALL be used as the canonical ownership key for:
+- coach membership validation
+- coach data retrieval
+- coach metadata retrieval
+- coach-owned asset retrieval
+- prompt-context assembly scoping
+
 Admin users may:
 - Manage seed prompts
 - Manage sample content
@@ -369,7 +386,7 @@ Example:
 SELECT *
 FROM assets
 WHERE id = ?
-AND user_id = ?
+AND lower(owner_email) = lower(?)
 ```
 
 Authorization MUST NEVER rely on frontend filtering.
@@ -608,11 +625,13 @@ POST /api/generations
 - Recent generations
 - Quick actions
 - Prompt categories
+- Coach context summary (brand/profile/workout/location metadata for signed-in coach)
 
 ### Asset Picker
 - User-owned assets only
 - Filtering/search
 - Metadata display
+- Coach-owned media previews available for selection during generation
 
 ### Prompt Template Gallery
 - Admin templates
@@ -623,6 +642,7 @@ POST /api/generations
 - Tone/style
 - CTA text
 - Brand options
+- Coach branding/workout/location context preloaded and available to prompt assembly
 
 ### Generation Results
 - Preview
@@ -632,6 +652,22 @@ POST /api/generations
 ### History
 - Previous generations
 - Re-download
+
+## Post-Signin Retrieval Contract (Required)
+
+After successful sign-in, the app SHALL retrieve signed-in coach context and present it in the UI before generation actions are enabled.
+
+Minimum required retrieval scopes:
+- coach business/profile branding metadata (from `coach_tenants`, scoped by normalized `owner_email`)
+- coach-owned media assets for browsing/selection
+- latest relevant workout/class metadata and location context for prompt enrichment
+- active prompt templates
+
+UI-ready behavior:
+- if retrieval succeeds: show coach context + asset picker + generation controls
+- if no assets exist: show empty asset state but keep generation available
+- if coach context is missing or user is not matched to a coach tenant: show access denied state
+- if partial non-critical metadata is unavailable: continue with available context and show non-blocking fallback messaging
 
 ---
 
@@ -671,7 +707,7 @@ TURSO_AUTH_TOKEN
 ## Authenticated APIs
 
 ### GET /api/assets
-Returns user-owned assets.
+Returns coach-owned assets for the signed-in coach (ownership scoped by normalized `owner_email`).
 
 ### GET /api/prompt-templates
 Returns active admin templates.
