@@ -688,22 +688,20 @@ export default function ChatPageClient() {
                     ) : null}
                     <small>Attached {new Date(media.createdAt).toLocaleString()}</small>
                     <div style={{ marginTop: 8 }}>
-                      <button
-                        onClick={() => void toggleClassMediaSharable(media.id, !media.isSharable)}
-                        disabled={Boolean(shareStateByMediaId[media.id])}
-                        style={{ marginRight: 8 }}
-                      >
-                        {shareStateByMediaId[media.id]
-                          ? "Saving..."
-                          : media.isSharable
-                            ? "Unmark sharable"
-                            : "Mark as sharable"}
-                      </button>
+                      <label style={{ marginRight: 8 }}>
+                        <input
+                          type="checkbox"
+                          checked={media.isSharable}
+                          onChange={(e) => void toggleClassMediaSharable(media.id, e.target.checked)}
+                          disabled={Boolean(shareStateByMediaId[media.id])}
+                        />{" "}
+                        Sharable
+                      </label>
+                      {shareStateByMediaId[media.id] ? <small style={{ marginRight: 8 }}>Saving...</small> : null}
                       <button onClick={() => void deleteClassMedia(media.id)} disabled={Boolean(deleteStateByMediaId[media.id])}>
                         {deleteStateByMediaId[media.id] ? "Deleting..." : "Delete"}
                       </button>
                     </div>
-                    <small>{media.isSharable ? "Sharable: yes" : "Sharable: no"}</small>
                   </article>
                 ))}
               </div>
