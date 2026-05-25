@@ -31,6 +31,17 @@ export default function ChatPageClient() {
   const [isDownloadingPrompt, setIsDownloadingPrompt] = useState(false);
   const [generationStatus, setGenerationStatus] = useState<string>("");
   const [generationError, setGenerationError] = useState<string>("");
+  const [generationElapsedSeconds, setGenerationElapsedSeconds] = useState(0);
+
+  useEffect(() => {
+    if (!isGenerating) return;
+    const startedAt = Date.now();
+    setGenerationElapsedSeconds(0);
+    const interval = setInterval(() => {
+      setGenerationElapsedSeconds(Math.floor((Date.now() - startedAt) / 1000));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isGenerating]);
 
   useEffect(() => {
     void fetch("/api/chat/bootstrap")
@@ -383,12 +394,15 @@ export default function ChatPageClient() {
     : "";
   const selectedTemplate = (bootstrap?.templates ?? []).find((tpl) => tpl.id === selectedTemplateId);
   const isWorkoutWarriorTemplate = WORKOUT_WARRIOR_TEMPLATE_TITLES.has(selectedTemplate?.title?.trim().toLowerCase() ?? "");
+  const isFormLocked = isGenerating;
+  const elapsedMinutes = String(Math.floor(generationElapsedSeconds / 60)).padStart(2, "0");
+  const elapsedSeconds = String(generationElapsedSeconds % 60).padStart(2, "0");
 
   return (
-    <div className="grid grid-2">
+    <div className="grid grid-2" style={{ position: "relative" }}>
       <section className="card" style={{ gridColumn: "1 / span 2", display: "flex", gap: 8 }}>
-        <button onClick={() => setActiveTab("chat")} disabled={activeTab === "chat"}>Image description</button>
-        <button onClick={() => setActiveTab("prompt")} disabled={activeTab === "prompt"}>Prompt Debug</button>
+        <button onClick={() => setActiveTab("chat")} disabled={activeTab === "chat" || isFormLocked}>Image description</button>
+        <button onClick={() => setActiveTab("prompt")} disabled={activeTab === "prompt" || isFormLocked}>Prompt Debug</button>
       </section>
       <section className="card">
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -412,7 +426,7 @@ export default function ChatPageClient() {
           />
         ) : null}
         <h3 style={{ marginTop: 10 }}>HIIT Classes</h3>
-        <select value={selectedClassId} onChange={(e) => onClassChange(e.target.value)}>
+        <select value={selectedClassId} onChange={(e) => onClassChange(e.target.value)} disabled={isFormLocked}>
           <option value="">Select a class</option>
           {(bootstrap?.classes ?? []).map((klass) => (
             <option key={klass.id} value={klass.id}>
@@ -421,14 +435,14 @@ export default function ChatPageClient() {
           ))}
         </select>
         <h3 style={{ marginTop: 10 }}>Template</h3>
-        <select value={selectedTemplateId} onChange={(e) => onTemplateChange(e.target.value)}>
+        <select value={selectedTemplateId} onChange={(e) => onTemplateChange(e.target.value)} disabled={isFormLocked}>
           <option value="">No template</option>
           {(bootstrap?.templates ?? []).map((tpl) => (
             <option key={tpl.id} value={tpl.id}>{tpl.title}</option>
           ))}
         </select>
         <h3 style={{ marginTop: 10 }}>Format</h3>
-        <select value={selectedFormat} onChange={(e) => setSelectedFormat(e.target.value as "square" | "portrait" | "story")}>
+        <select value={selectedFormat} onChange={(e) => setSelectedFormat(e.target.value as "square" | "portrait" | "story")} disabled={isFormLocked}>
           <option value="square">Square (1080x1080)</option>
           <option value="portrait">Portrait (1080x1350)</option>
           <option value="story">Story (1080x1920)</option>
@@ -437,12 +451,12 @@ export default function ChatPageClient() {
         <div style={{ maxHeight: 160, overflowY: "auto" }}>
           {(bootstrap?.assets ?? []).map((asset) => (
             <label key={asset.id} style={{ display: "block" }}>
-              <input type="checkbox" checked={selectedAssetIds.includes(asset.id)} onChange={() => toggleAsset(asset.id)} /> {asset.title}
+              <input type="checkbox" checked={selectedAssetIds.includes(asset.id)} onChange={() => toggleAsset(asset.id)} disabled={isFormLocked} /> {asset.title}
             </label>
           ))}
         </div>
         <h3 style={{ marginTop: 10 }}>Upload References</h3>
-        <input type="file" accept="image/jpeg,image/png,.jpg,.jpeg,.png" multiple onChange={(e) => void uploadReferenceFiles(e.target.files)} />
+        <input type="file" accept="image/jpeg,image/png,.jpg,.jpeg,.png" multiple onChange={(e) => void uploadReferenceFiles(e.target.files)} disabled={isFormLocked} />
         {tempUploadNames.length ? <small>{tempUploadNames.length} staged: {tempUploadNames.join(", ")}</small> : null}
         {isWorkoutWarriorTemplate ? (
           <>
@@ -452,11 +466,13 @@ export default function ChatPageClient() {
               value={attendeeName}
               onChange={(e) => setAttendeeName(e.target.value)}
               placeholder="Attendee name"
+              disabled={isFormLocked}
             />
             <input
               type="file"
               accept="image/jpeg,image/png,.jpg,.jpeg,.png"
               onChange={(e) => void uploadAttendeeImage(e.target.files?.[0] ?? null)}
+              disabled={isFormLocked}
             />
             {attendeeImageName ? <small>Staged attendee image: {attendeeImageName}</small> : null}
           </>
@@ -473,10 +489,11 @@ export default function ChatPageClient() {
                 rows={16}
                 placeholder="Describe the image you want to generate"
                 style={{ width: "100%", minHeight: 360, resize: "vertical" }}
+                disabled={isFormLocked}
               />
               <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
                 <button onClick={submitGenerate} disabled={isGenerating}>{isGenerating ? "Generating..." : "Generate"}</button>
-                <button onClick={submitDownloadPrompt} disabled={isGenerating || isDownloadingPrompt}>
+                <button onClick={submitDownloadPrompt} disabled={isGenerating || isDownloadingPrompt || isFormLocked}>
                   {isDownloadingPrompt ? "Preparing..." : "Download LLM Message"}
                 </button>
               </div>
@@ -524,6 +541,55 @@ export default function ChatPageClient() {
           )}
         </div>
       </section>
+      {isGenerating ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-live="polite"
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0, 0, 0, 0.45)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000
+          }}
+        >
+          <div
+            className="card"
+            style={{
+              width: "min(420px, calc(100vw - 32px))",
+              textAlign: "center",
+              padding: 20
+            }}
+          >
+            <div
+              aria-hidden="true"
+              style={{
+                width: 36,
+                height: 36,
+                margin: "0 auto 12px auto",
+                borderRadius: "50%",
+                border: "4px solid #d1d5db",
+                borderTopColor: "#0f766e",
+                animation: "spin 1s linear infinite"
+              }}
+            />
+            <p style={{ margin: "0 0 10px 0", fontSize: 12, color: "#4b5563" }}>
+              {elapsedMinutes}:{elapsedSeconds}
+            </p>
+            <p style={{ margin: 0, fontWeight: 700 }}>Generating image... usually takes ~3 minutes</p>
+          </div>
+          <style jsx>{`
+            @keyframes spin {
+              to {
+                transform: rotate(360deg);
+              }
+            }
+          `}</style>
+        </div>
+      ) : null}
     </div>
   );
 }
