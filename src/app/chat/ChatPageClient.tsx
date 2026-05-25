@@ -18,6 +18,7 @@ export default function ChatPageClient() {
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
   const [selectedFormat, setSelectedFormat] = useState<"square" | "portrait" | "story">("square");
   const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>([]);
+  const [runSessionId, setRunSessionId] = useState<string>("");
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [tempUploadRefs, setTempUploadRefs] = useState<string[]>([]);
@@ -53,6 +54,14 @@ export default function ChatPageClient() {
     return data.id;
   }
 
+  async function ensureRunSessionId(title: string): Promise<string | null> {
+    if (runSessionId) return runSessionId;
+    const created = await createSession(title);
+    if (!created) return null;
+    setRunSessionId(created);
+    return created;
+  }
+
   async function submitGenerate() {
     if (!message.trim() || isGenerating) return;
     const selectedTemplate = (bootstrap?.templates ?? []).find((tpl) => tpl.id === selectedTemplateId);
@@ -78,7 +87,7 @@ export default function ChatPageClient() {
       }
     }
 
-    const activeSessionId = await createSession("Generate image");
+    const activeSessionId = await ensureRunSessionId("Generate image");
     if (!activeSessionId) return;
 
     setIsGenerating(true);
@@ -122,6 +131,9 @@ export default function ChatPageClient() {
       }
       const d = await fetch(`/api/chat/sessions/${activeSessionId}/messages`).then((r) => r.json());
       setMessages(d.messages ?? []);
+      if (res.ok) {
+        setRunSessionId("");
+      }
     } finally {
       if (poller) clearInterval(poller);
       setIsGenerating(false);
@@ -186,7 +198,7 @@ export default function ChatPageClient() {
       }
     }
 
-    const activeSessionId = await createSession("Download prompt");
+    const activeSessionId = await ensureRunSessionId("Download prompt");
     if (!activeSessionId) return;
 
     setIsDownloadingPrompt(true);
@@ -248,6 +260,7 @@ export default function ChatPageClient() {
       link.click();
       link.remove();
       URL.revokeObjectURL(objectUrl);
+      setRunSessionId("");
     } finally {
       setIsDownloadingPrompt(false);
       setGenerationStatus("");
@@ -256,7 +269,7 @@ export default function ChatPageClient() {
 
   async function uploadReferenceFiles(files: FileList | null) {
     if (!files?.length) return;
-    const activeSessionId = await createSession("Upload references");
+    const activeSessionId = await ensureRunSessionId("Upload references");
     if (!activeSessionId) return;
 
     setGenerationError("");
@@ -287,7 +300,7 @@ export default function ChatPageClient() {
 
   async function uploadAttendeeImage(file: File | null) {
     if (!file) return;
-    const activeSessionId = await createSession("Upload attendee image");
+    const activeSessionId = await ensureRunSessionId("Upload attendee image");
     if (!activeSessionId) return;
 
     setGenerationError("");
