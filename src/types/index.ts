@@ -8,7 +8,7 @@ export type SessionUser = {
 
 export type ChatMessageRole = "user" | "assistant" | "system";
 
-export type GenerateResponse = {
+export type GenerateCompletedResponse = {
   messageId: string;
   image: { signedUrl: string; expiresAt: string };
   usage: {
@@ -23,6 +23,14 @@ export type GenerateResponse = {
   status: "completed" | "failed";
   error?: { code: string; message: string };
 };
+
+export type PromptReadyResponse = {
+  status: "prompt_ready";
+  fileName: string;
+  assembledPrompt: string;
+};
+
+export type GenerateResponse = GenerateCompletedResponse | PromptReadyResponse;
 
 export type CoachProfile = {
   id: string;

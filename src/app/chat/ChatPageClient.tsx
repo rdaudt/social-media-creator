@@ -25,6 +25,7 @@ export default function ChatPageClient() {
   const [attendeeImageRef, setAttendeeImageRef] = useState<string>("");
   const [attendeeImageName, setAttendeeImageName] = useState<string>("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isDownloadingPrompt, setIsDownloadingPrompt] = useState(false);
   const [generationStatus, setGenerationStatus] = useState<string>("");
   const [generationError, setGenerationError] = useState<string>("");
 
@@ -176,6 +177,98 @@ export default function ChatPageClient() {
       setAttendeeName("");
       setAttendeeImageRef("");
       setAttendeeImageName("");
+    }
+  }
+
+  async function submitDownloadPrompt() {
+    if (!message.trim() || isGenerating || isDownloadingPrompt) return;
+    const selectedTemplate = (bootstrap?.templates ?? []).find((tpl) => tpl.id === selectedTemplateId);
+    const isWorkoutWarriorTemplate = selectedTemplate?.title?.trim().toLowerCase() === "ig hiit workout warrior";
+    const selectedClass = (bootstrap?.classes ?? []).find((klass) => klass.id === selectedClassId);
+    if (!selectedClass) {
+      setGenerationError("Select a HIIT class before generating an image.");
+      return;
+    }
+    if (!selectedClass.classDate || !(selectedClass.startTime ?? selectedClass.ranAt)) {
+      setGenerationError("The selected HIIT class needs a date and start time before image generation.");
+      return;
+    }
+    if (isWorkoutWarriorTemplate) {
+      if (!attendeeName.trim()) {
+        setGenerationError("Enter the attendee name for IG HIIT Workout Warrior.");
+        return;
+      }
+      if (!attendeeImageRef) {
+        setGenerationError("Upload the attendee image for IG HIIT Workout Warrior.");
+        return;
+      }
+    }
+
+    const activeSessionId = sessionId || await createSession("New session");
+    if (!activeSessionId) return;
+
+    setIsDownloadingPrompt(true);
+    setGenerationError("");
+    setGenerationStatus("Preparing downloadable LLM payload...");
+    try {
+      const res = await fetch("/api/chat/generate", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          mode: "download_prompt",
+          sessionId: activeSessionId,
+          message,
+          promptTemplateId: selectedTemplateId || undefined,
+          attendeeName: attendeeName.trim() || undefined,
+          attendeeImageRef: attendeeImageRef || undefined,
+          locationId: selectedLocationId || undefined,
+          classId: selectedClassId || undefined,
+          platform: "instagram",
+          format: selectedFormat,
+          outputPreset: selectedFormat === "portrait" ? "ig_portrait_1080x1350" : selectedFormat === "story" ? "ig_story_1080x1920" : "ig_square_1080",
+          selectedAssetIds,
+          tempUploadRefs
+        })
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const errorMessage = typeof payload?.error?.message === "string"
+          ? payload.error.message
+          : typeof payload?.error === "string"
+            ? payload.error
+            : "Could not prepare LLM payload.";
+        setGenerationError(errorMessage);
+        return;
+      }
+
+      const assembledPromptText = typeof payload?.assembledPrompt === "string" ? payload.assembledPrompt : "";
+      const fileName = typeof payload?.fileName === "string" ? payload.fileName : `llm-payload-${activeSessionId}.txt`;
+      if (!assembledPromptText) {
+        setGenerationError("Could not prepare LLM payload.");
+        return;
+      }
+
+      const timestamp = new Date().toISOString();
+      const text = [
+        `LLM Payload Export | Session ${activeSessionId} | Generated at ${timestamp}`,
+        "",
+        assembledPromptText,
+        "",
+        "Note: Signed image URLs in this payload may expire."
+      ].join("\n");
+
+      const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(objectUrl);
+    } finally {
+      setIsDownloadingPrompt(false);
+      setGenerationStatus("");
     }
   }
 
@@ -363,8 +456,11 @@ export default function ChatPageClient() {
           <>
         <h2>Chat</h2>
         <textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={4} placeholder="Describe the image you want to generate" />
-        <div style={{ marginTop: 8 }}>
+        <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
           <button onClick={submitGenerate} disabled={isGenerating}>{isGenerating ? "Generating..." : "Generate"}</button>
+          <button onClick={submitDownloadPrompt} disabled={isGenerating || isDownloadingPrompt}>
+            {isDownloadingPrompt ? "Preparing..." : "Download LLM Message"}
+          </button>
         </div>
         {generationStatus ? <p style={{ marginTop: 8 }}>{generationStatus}</p> : null}
         {generationError ? <p style={{ marginTop: 8, color: "#9b1c1c" }}>{generationError}</p> : null}

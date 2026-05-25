@@ -10,6 +10,7 @@ export const templateSchema = z.object({
 });
 
 export const generateSchema = z.object({
+  mode: z.enum(["generate", "download_prompt"]).default("generate"),
   sessionId: z.string().min(1),
   message: z.string().min(1),
   promptTemplateId: z.string().optional(),

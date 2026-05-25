@@ -66,6 +66,7 @@ export async function POST(req: Request) {
     const parsed = generateSchema.safeParse(await req.json());
     if (!parsed.success) return NextResponse.json({ error: "invalid_payload", details: parsed.error.flatten() }, { status: 400 });
     const body = parsed.data;
+    const mode = body.mode ?? "generate";
     sessionId = body.sessionId;
     const publicOrigin = getPublicOrigin(req);
     console.info(`[chat.generate][${reqId}] payload_ok session=${body.sessionId} template=${body.promptTemplateId ?? "none"} assets=${body.selectedAssetIds.length} tempRefs=${body.tempUploadRefs.length}`);
@@ -223,6 +224,16 @@ export async function POST(req: Request) {
       "CONVERSATION_HISTORY",
       recentHistory || "No previous conversation."
     ].join("\n");
+
+    if (mode === "download_prompt") {
+      const fileName = `llm-payload-${body.sessionId}-${new Date().toISOString().replace(/[:.]/g, "-")}.txt`;
+      const response: GenerateResponse = {
+        status: "prompt_ready",
+        fileName,
+        assembledPrompt
+      };
+      return NextResponse.json(response);
+    }
 
     userMessageId = newId("msg");
     const ts = nowIso();
