@@ -73,9 +73,75 @@ test("selected location and class are sent in generate request", async ({ page }
   });
 
   await page.goto("/chat");
+  await page.locator("select").first().selectOption("class_1");
   await page.getByPlaceholder("Describe the image you want to generate").fill("Create a class promo post");
   await page.getByRole("button", { name: "Generate" }).click();
 
   expect(generatePayload?.locationId).toBe("loc_1");
   expect(generatePayload?.classId).toBe("class_1");
+});
+
+test("generation is blocked until a HIIT class is selected", async ({ page }) => {
+  await setBypassSession(page, { sub: "user_coach", email: "coach@example.com", role: "coach", coachMember: true });
+
+  await page.route("**/api/chat/bootstrap", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        coach: null,
+        locations: [],
+        classes: [{ id: "class_1", timerNameAtRun: "Morning Blast", category: "HIIT", classDate: "2026-05-20", startTime: "2026-05-20T10:00:00.000Z", locationLabelAtRun: null, timerSnapshotJson: "{}", ranAt: "2026-05-20T10:00:00.000Z" }],
+        assets: [],
+        templates: [],
+        sessions: [{ id: "chat_1", title: "Test Session", createdAt: "2026-05-20T10:00:00.000Z", updatedAt: "2026-05-20T10:00:00.000Z" }],
+        defaults: { selectedLocationId: undefined, selectedClassId: "class_1" }
+      })
+    });
+  });
+  await page.route("**/api/chat/sessions/chat_1/messages", async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ messages: [] }) });
+  });
+
+  let generateCalled = false;
+  await page.route("**/api/chat/generate", async (route) => {
+    generateCalled = true;
+    await route.fulfill({ status: 500, contentType: "application/json", body: "{}" });
+  });
+
+  await page.goto("/chat");
+  await page.getByPlaceholder("Describe the image you want to generate").fill("Create a class promo post");
+  await page.getByRole("button", { name: "Generate" }).click();
+
+  await expect(page.getByText("Select a HIIT class before generating an image.")).toBeVisible();
+  expect(generateCalled).toBe(false);
+});
+
+test("selected template populates the prompt editor", async ({ page }) => {
+  await setBypassSession(page, { sub: "user_coach", email: "coach@example.com", role: "coach", coachMember: true });
+
+  await page.route("**/api/chat/bootstrap", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        coach: null,
+        locations: [],
+        classes: [],
+        assets: [],
+        templates: [
+          { id: "tpl_1", title: "Promo", platform: "instagram", format: "square", templateFamilyId: null, templateVersion: 1, promptText: "Template prompt text", defaultOptionsJson: null }
+        ],
+        sessions: [{ id: "chat_1", title: "Test Session", createdAt: "2026-05-20T10:00:00.000Z", updatedAt: "2026-05-20T10:00:00.000Z" }],
+        defaults: {}
+      })
+    });
+  });
+  await page.route("**/api/chat/sessions/chat_1/messages", async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ messages: [] }) });
+  });
+
+  await page.goto("/chat");
+
+  await expect(page.getByPlaceholder("Describe the image you want to generate")).toHaveValue("Template prompt text");
 });

@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
+import { get } from "@vercel/blob";
 import { requireCoachSessionUser } from "@/lib/auth";
+import { verifySignedBlobAccessUrl } from "@/lib/blob";
 import { authErrorResponse } from "@/lib/http";
 
 function isAllowedBlobHost(hostname: string): boolean {
@@ -8,8 +10,6 @@ function isAllowedBlobHost(hostname: string): boolean {
 
 export async function GET(req: Request) {
   try {
-    await requireCoachSessionUser();
-
     const { searchParams } = new URL(req.url);
     const rawUrl = searchParams.get("url");
     if (!rawUrl) {
@@ -27,26 +27,25 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "disallowed_host" }, { status: 400 });
     }
 
-    const token = process.env.BLOB_READ_WRITE_TOKEN;
-    if (!token) {
-      return NextResponse.json({ error: "blob_token_missing" }, { status: 500 });
+    const isSigned = verifySignedBlobAccessUrl(parsed.toString(), searchParams.get("exp"), searchParams.get("sig"));
+    if (!isSigned) {
+      await requireCoachSessionUser();
     }
 
-    const upstream = await fetch(parsed.toString(), {
-      headers: { Authorization: `Bearer ${token}` },
-      cache: "no-store"
+    const blob = await get(parsed.toString(), {
+      access: "private",
+      token: process.env.BLOB_READ_WRITE_TOKEN
     });
-    if (!upstream.ok) {
-      return NextResponse.json({ error: "blob_fetch_failed", status: upstream.status }, { status: 502 });
+    if (!blob || blob.statusCode !== 200 || !blob.stream) {
+      return NextResponse.json({ error: "blob_fetch_failed", status: blob?.statusCode ?? 404 }, { status: 502 });
     }
 
-    const contentType = upstream.headers.get("content-type") ?? "application/octet-stream";
-    const body = await upstream.arrayBuffer();
-    return new NextResponse(body, {
+    return new NextResponse(blob.stream, {
       status: 200,
       headers: {
-        "content-type": contentType,
-        "cache-control": "private, max-age=60"
+        "content-type": blob.blob.contentType ?? "application/octet-stream",
+        "cache-control": isSigned ? "public, max-age=60" : "private, max-age=60",
+        "x-content-type-options": "nosniff"
       }
     });
   } catch (error) {
