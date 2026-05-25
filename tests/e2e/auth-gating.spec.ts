@@ -145,3 +145,50 @@ test("selected template populates the prompt editor", async ({ page }) => {
 
   await expect(page.getByPlaceholder("Describe the image you want to generate")).toHaveValue("Template prompt text");
 });
+
+test("generate creates a session when none exists", async ({ page }) => {
+  await setBypassSession(page, { sub: "user_coach", email: "coach@example.com", role: "coach", coachMember: true });
+
+  await page.route("**/api/chat/bootstrap", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        coach: null,
+        locations: [{ id: "loc_1", businessName: "Fit Lab", locationName: "Downtown", logoUrl: null, isDefault: true, sortOrder: 0 }],
+        classes: [{ id: "class_1", timerNameAtRun: "Morning Blast", category: "HIIT", classDate: "2026-05-20", startTime: "2026-05-20T10:00:00.000Z", locationLabelAtRun: "Downtown", timerSnapshotJson: "{}", ranAt: "2026-05-20T10:00:00.000Z" }],
+        assets: [],
+        templates: [],
+        sessions: [],
+        defaults: { selectedLocationId: "loc_1" }
+      })
+    });
+  });
+  await page.route("**/api/chat/sessions/chat_created/messages", async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ messages: [] }) });
+  });
+
+  let sessionCreated = false;
+  await page.route("**/api/chat/sessions", async (route) => {
+    if (route.request().method() === "POST") {
+      sessionCreated = true;
+      await route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ id: "chat_created", title: "New session", createdAt: "2026-05-20T10:00:00.000Z", updatedAt: "2026-05-20T10:00:00.000Z" }) });
+      return;
+    }
+    await route.fallback();
+  });
+
+  let generatePayload: Record<string, unknown> | null = null;
+  await page.route("**/api/chat/generate", async (route) => {
+    generatePayload = JSON.parse(route.request().postData() ?? "{}") as Record<string, unknown>;
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "completed", messageId: "msg_1", image: { signedUrl: "https://example.com/i.png", expiresAt: "2026-05-20T12:00:00.000Z" }, usage: { inputTokens: 1, outputTokens: 1, estimatedCost: 0, durationMs: 1, model: "gpt-image-1" } }) });
+  });
+
+  await page.goto("/chat");
+  await page.locator("select").first().selectOption("class_1");
+  await page.getByPlaceholder("Describe the image you want to generate").fill("Create a class promo post");
+  await page.getByRole("button", { name: "Generate" }).click();
+
+  await expect.poll(() => sessionCreated).toBe(true);
+  await expect.poll(() => generatePayload?.sessionId).toBe("chat_created");
+});

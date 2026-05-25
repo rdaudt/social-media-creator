@@ -45,15 +45,20 @@ export default function ChatPageClient() {
     void fetch(`/api/chat/sessions/${sessionId}/messages`).then((r) => r.json()).then((d) => setMessages(d.messages ?? []));
   }, [sessionId]);
 
-  async function createSession() {
-    const res = await fetch("/api/chat/sessions", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ title: "New session" }) });
+  async function createSession(title = "New session"): Promise<string | null> {
+    const res = await fetch("/api/chat/sessions", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ title }) });
     const data = await res.json();
+    if (!res.ok || typeof data.id !== "string") {
+      setGenerationError("Could not create a chat session. Please try again.");
+      return null;
+    }
     setSessionId(data.id);
     setSessions((p) => [{ id: data.id, title: data.title }, ...p]);
+    return data.id;
   }
 
   async function submitGenerate() {
-    if (!sessionId || !message.trim() || isGenerating) return;
+    if (!message.trim() || isGenerating) return;
     const selectedClass = (bootstrap?.classes ?? []).find((klass) => klass.id === selectedClassId);
     if (!selectedClass) {
       setGenerationError("Select a HIIT class before generating an image.");
@@ -64,13 +69,16 @@ export default function ChatPageClient() {
       return;
     }
 
+    const activeSessionId = sessionId || await createSession("New session");
+    if (!activeSessionId) return;
+
     setIsGenerating(true);
     setGenerationError("");
     setGenerationStatus("Image creation request submitted. Waiting for return from the LLM...");
     let poller: ReturnType<typeof setInterval> | null = null;
     try {
       poller = setInterval(() => {
-        void fetch(`/api/chat/sessions/${sessionId}/messages`)
+        void fetch(`/api/chat/sessions/${activeSessionId}/messages`)
           .then((r) => r.json())
           .then((d) => setMessages(d.messages ?? []))
           .catch(() => {});
@@ -80,7 +88,7 @@ export default function ChatPageClient() {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          sessionId,
+          sessionId: activeSessionId,
           message,
           promptTemplateId: selectedTemplateId || undefined,
           locationId: selectedLocationId || undefined,
@@ -105,7 +113,7 @@ export default function ChatPageClient() {
         setTempUploadRefs([]);
         setTempUploadNames([]);
       }
-      const d = await fetch(`/api/chat/sessions/${sessionId}/messages`).then((r) => r.json());
+      const d = await fetch(`/api/chat/sessions/${activeSessionId}/messages`).then((r) => r.json());
       setMessages(d.messages ?? []);
     } finally {
       if (poller) clearInterval(poller);
@@ -147,7 +155,10 @@ export default function ChatPageClient() {
   }
 
   async function uploadReferenceFiles(files: FileList | null) {
-    if (!files?.length || !sessionId) return;
+    if (!files?.length) return;
+    const activeSessionId = sessionId || await createSession("New session");
+    if (!activeSessionId) return;
+
     setGenerationError("");
     const selectedFiles = Array.from(files);
     const invalid = selectedFiles.find((file) => file.type !== "image/jpeg" && file.type !== "image/png");
@@ -157,7 +168,7 @@ export default function ChatPageClient() {
     }
 
     const form = new FormData();
-    form.set("sessionId", sessionId);
+    form.set("sessionId", activeSessionId);
     for (const file of selectedFiles) {
       form.append("files", file);
     }
@@ -263,7 +274,7 @@ export default function ChatPageClient() {
       </section>
       <section className="card">
         <h2>Sessions</h2>
-        <button onClick={createSession}>New Session</button>
+        <button onClick={() => void createSession()}>New Session</button>
         <div style={{ marginTop: 12 }}>
           {sessions.map((s) => (
             <div key={s.id}>
