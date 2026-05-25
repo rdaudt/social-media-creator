@@ -538,7 +538,7 @@ export default function ChatPageClient() {
                   return (
                     <article key={m.id} className="card">
                       {meta?.image?.signedUrl ? <img src={meta.image.signedUrl} alt="generated" style={{ width: "100%", borderRadius: 8 }} /> : null}
-                      {meta?.image?.signedUrl ? <p><a href={meta.image.signedUrl} download>Download</a> <small>Expires {new Date(meta.image.expiresAt).toLocaleString()}</small></p> : null}
+                      {meta?.image?.signedUrl ? <p><a href={meta.image.signedUrl} download={meta.image.fileName ?? "Generated Image.png"}>Download</a> <small>Expires {new Date(meta.image.expiresAt).toLocaleString()}</small></p> : null}
                       {meta?.usage ? (
                         <small>
                           {(meta.usage.imageModel ?? meta.usage.model)}

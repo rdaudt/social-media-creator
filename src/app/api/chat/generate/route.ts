@@ -307,7 +307,11 @@ export async function POST(req: Request) {
 
     const generatedExpiresAt = new Date(Date.now() + 3600_000).toISOString();
     const metadata = {
-      image: { signedUrl: createSignedBlobAccessUrl(blob.url, publicOrigin, generatedExpiresAt), expiresAt: generatedExpiresAt },
+      image: {
+        signedUrl: createSignedBlobAccessUrl(blob.url, publicOrigin, generatedExpiresAt),
+        expiresAt: generatedExpiresAt,
+        fileName: buildGeneratedImageFileName(templateTitle, ts)
+      },
       usage: {
         inputTokens: generated.usage.input,
         outputTokens: generated.usage.output,
@@ -573,4 +577,19 @@ function getUserFacingErrorMessage(error: unknown, code: string): string {
     return "Image generation could not be completed because of a connection error. Please try again.";
   }
   return "Generation failed safely. Try again.";
+}
+
+function buildGeneratedImageFileName(templateTitle: string, createdAtIso: string): string {
+  const safeTemplate = String(templateTitle || "Generated Image")
+    .replace(/[\\/:*?"<>|]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const d = new Date(createdAtIso);
+  const yyyy = d.getUTCFullYear();
+  const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(d.getUTCDate()).padStart(2, "0");
+  const hh = String(d.getUTCHours()).padStart(2, "0");
+  const min = String(d.getUTCMinutes()).padStart(2, "0");
+  const ss = String(d.getUTCSeconds()).padStart(2, "0");
+  return `${safeTemplate} - ${yyyy}-${mm}-${dd}_${hh}-${min}-${ss}.png`;
 }
