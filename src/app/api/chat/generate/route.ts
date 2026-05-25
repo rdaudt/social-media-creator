@@ -7,6 +7,7 @@ import { authErrorResponse } from "@/lib/http";
 import { generateImageWithContext } from "@/lib/openai";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { generateSchema } from "@/lib/validation";
+import { calculateActualCostUsd, estimateCostUsdFromTotals, resolvePricingRateSet, type CostConfidence } from "@/lib/pricing";
 import type { ChatBootstrapResponse, CoachHiitClass, CoachLocation, GenerateResponse } from "@/types";
 
 type StagedImageRole = "coach_photo_url" | "business_logo_url" | "location_logo_url" | "user_uploaded_image" | "selected_asset" | "attendee_photo_url";
@@ -285,7 +286,23 @@ export async function POST(req: Request) {
     const blob = await putTempBlob(`temp/${body.sessionId}/generated/${newId("img")}.png`, Buffer.from(generated.b64, "base64"), "image/png");
     console.info(`[chat.generate][${reqId}] blob_saved path=${blob.pathname}`);
     const durationMs = Date.now() - start;
-    const estimatedCost = Number(((generated.usage.input / 1_000_000) * 10 + (generated.usage.output / 1_000_000) * 40).toFixed(6));
+    const pricing = await resolvePricingRateSet(generated.displayModel, nowIso());
+    const estimatedCost = pricing
+      ? estimateCostUsdFromTotals(generated.usage.input, generated.usage.output, pricing)
+      : Number(((generated.usage.input / 1_000_000) * 10 + (generated.usage.output / 1_000_000) * 40).toFixed(6));
+    const detailedUsagePresent = generated.usage.imageOutputTokens > 0 || generated.usage.imageInputTokens > 0;
+    const costConfidence: CostConfidence = detailedUsagePresent ? "high" : "partial";
+    const actualCostUsd = pricing
+      ? calculateActualCostUsd({
+        inputTokens: generated.usage.input,
+        outputTokens: generated.usage.output,
+        textInputTokens: generated.usage.textInputTokens,
+        cachedTextInputTokens: generated.usage.cachedTextInputTokens,
+        imageInputTokens: generated.usage.imageInputTokens,
+        cachedImageInputTokens: generated.usage.cachedImageInputTokens,
+        imageOutputTokens: generated.usage.imageOutputTokens
+      }, pricing)
+      : estimatedCost;
     const assistantMessageId = newId("msg");
 
     const generatedExpiresAt = new Date(Date.now() + 3600_000).toISOString();
@@ -295,6 +312,15 @@ export async function POST(req: Request) {
         inputTokens: generated.usage.input,
         outputTokens: generated.usage.output,
         estimatedCost,
+        actualCostUsd,
+        costConfidence,
+        costBreakdown: {
+          textInputTokens: generated.usage.textInputTokens,
+          cachedTextInputTokens: generated.usage.cachedTextInputTokens,
+          imageInputTokens: generated.usage.imageInputTokens,
+          cachedImageInputTokens: generated.usage.cachedImageInputTokens,
+          imageOutputTokens: generated.usage.imageOutputTokens
+        },
         durationMs,
         model: generated.displayModel,
         orchestratorModel: generated.orchestratorModel,
@@ -307,7 +333,7 @@ export async function POST(req: Request) {
     await db.batch([
       { sql: `INSERT INTO chat_messages (id, session_id, role, content, attachments_json, generation_metadata_json, created_at, parent_message_id) VALUES (?, ?, 'assistant', ?, ?, ?, ?, ?)`, args: [assistantMessageId, body.sessionId, "Generated image", JSON.stringify({ blobPath: blob.pathname }), JSON.stringify(metadata), nowIso(), userMessageId] },
       { sql: `UPDATE chat_sessions SET updated_at = ? WHERE id = ?`, args: [nowIso(), body.sessionId] },
-      { sql: `INSERT INTO interaction_usage (id, owner_google_sub, session_id, request_type, model, input_tokens, output_tokens, estimated_cost, duration_ms, created_at) VALUES (?, ?, ?, 'image_generation', ?, ?, ?, ?, ?, ?)`, args: [newId("usage"), user.sub, body.sessionId, generated.displayModel, generated.usage.input, generated.usage.output, estimatedCost, durationMs, nowIso()] },
+      { sql: `INSERT INTO interaction_usage (id, owner_google_sub, session_id, request_type, model, input_tokens, output_tokens, text_input_tokens, cached_text_input_tokens, image_input_tokens, cached_image_input_tokens, image_output_tokens, estimated_cost, actual_cost_usd, cost_confidence, pricing_version, duration_ms, created_at) VALUES (?, ?, ?, 'image_generation', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, args: [newId("usage"), user.sub, body.sessionId, generated.displayModel, generated.usage.input, generated.usage.output, generated.usage.textInputTokens, generated.usage.cachedTextInputTokens, generated.usage.imageInputTokens, generated.usage.cachedImageInputTokens, generated.usage.imageOutputTokens, estimatedCost, actualCostUsd, costConfidence, pricing?.version ?? null, durationMs, nowIso()] },
       { sql: `INSERT INTO generation_events (id, owner_google_sub, session_id, message_id, status, created_at) VALUES (?, ?, ?, ?, 'completed', ?)`, args: [newId("evt"), user.sub, body.sessionId, assistantMessageId, nowIso()] }
     ], "write");
     console.info(`[chat.generate][${reqId}] db_persist_done assistantMessageId=${assistantMessageId}`);

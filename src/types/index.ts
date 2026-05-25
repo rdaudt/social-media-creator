@@ -15,6 +15,15 @@ export type GenerateCompletedResponse = {
     inputTokens: number;
     outputTokens: number;
     estimatedCost: number;
+    actualCostUsd: number;
+    costConfidence: "high" | "partial";
+    costBreakdown?: {
+      textInputTokens: number;
+      cachedTextInputTokens: number;
+      imageInputTokens: number;
+      cachedImageInputTokens: number;
+      imageOutputTokens: number;
+    };
     durationMs: number;
     model: string;
     orchestratorModel?: string;

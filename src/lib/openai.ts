@@ -14,11 +14,30 @@ type ImageGenerationResponse = {
   usage?: {
     input_tokens?: number;
     output_tokens?: number;
+    input_tokens_details?: {
+      text_tokens?: number;
+      image_tokens?: number;
+      cached_tokens?: number;
+      cached_text_tokens?: number;
+      cached_image_tokens?: number;
+    };
+    output_tokens_details?: {
+      image_tokens?: number;
+      text_tokens?: number;
+    };
   } | null;
 };
 
 type OpenAIImageSize = "1024x1024" | "1024x1536" | "1536x1024" | "1024x1792";
-type ImageUsage = { input: number; output: number };
+type ImageUsage = {
+  input: number;
+  output: number;
+  textInputTokens: number;
+  cachedTextInputTokens: number;
+  imageInputTokens: number;
+  cachedImageInputTokens: number;
+  imageOutputTokens: number;
+};
 type GeneratedImage = { b64: string; usage: ImageUsage };
 type GeneratedImageWithModels = GeneratedImage & {
   orchestratorModel: string;
@@ -85,7 +104,12 @@ async function generateFromPrompt(
     b64,
     usage: {
       input: result.usage?.input_tokens ?? 0,
-      output: result.usage?.output_tokens ?? 0
+      output: result.usage?.output_tokens ?? 0,
+      textInputTokens: result.usage?.input_tokens ?? 0,
+      cachedTextInputTokens: 0,
+      imageInputTokens: 0,
+      cachedImageInputTokens: 0,
+      imageOutputTokens: result.usage?.output_tokens ?? 0
     }
   };
 }
@@ -135,7 +159,12 @@ async function generateFromImageUrls(
     b64,
     usage: {
       input: result.usage?.input_tokens ?? 0,
-      output: result.usage?.output_tokens ?? 0
+      output: result.usage?.output_tokens ?? 0,
+      textInputTokens: result.usage?.input_tokens_details?.text_tokens ?? result.usage?.input_tokens ?? 0,
+      cachedTextInputTokens: result.usage?.input_tokens_details?.cached_text_tokens ?? result.usage?.input_tokens_details?.cached_tokens ?? 0,
+      imageInputTokens: result.usage?.input_tokens_details?.image_tokens ?? 0,
+      cachedImageInputTokens: result.usage?.input_tokens_details?.cached_image_tokens ?? 0,
+      imageOutputTokens: result.usage?.output_tokens_details?.image_tokens ?? result.usage?.output_tokens ?? 0
     }
   };
 }

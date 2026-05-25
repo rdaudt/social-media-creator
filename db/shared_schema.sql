@@ -40,3 +40,35 @@ CREATE TABLE IF NOT EXISTS coach_class_locations (
   is_default INTEGER,
   sort_order INTEGER
 );
+
+CREATE TABLE IF NOT EXISTS model_pricing_rates (
+  id TEXT PRIMARY KEY,
+  model TEXT NOT NULL,
+  rate_type TEXT NOT NULL,
+  usd_per_million_tokens REAL NOT NULL,
+  effective_from TEXT NOT NULL,
+  effective_to TEXT,
+  is_active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS interaction_usage (
+  id TEXT PRIMARY KEY,
+  owner_google_sub TEXT NOT NULL,
+  session_id TEXT NOT NULL,
+  request_type TEXT NOT NULL,
+  model TEXT NOT NULL,
+  input_tokens INTEGER NOT NULL,
+  output_tokens INTEGER NOT NULL,
+  text_input_tokens INTEGER NOT NULL DEFAULT 0,
+  cached_text_input_tokens INTEGER NOT NULL DEFAULT 0,
+  image_input_tokens INTEGER NOT NULL DEFAULT 0,
+  cached_image_input_tokens INTEGER NOT NULL DEFAULT 0,
+  image_output_tokens INTEGER NOT NULL DEFAULT 0,
+  estimated_cost REAL NOT NULL,
+  actual_cost_usd REAL NOT NULL DEFAULT 0,
+  cost_confidence TEXT NOT NULL DEFAULT 'partial',
+  pricing_version TEXT,
+  duration_ms INTEGER NOT NULL,
+  created_at TEXT NOT NULL
+);

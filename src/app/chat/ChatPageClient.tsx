@@ -5,6 +5,11 @@ import type { ChatBootstrapResponse } from "@/types";
 
 type Message = { id: string; role: string; content: string; generation_metadata_json?: string; attachments_json?: string };
 type TempUploadResponseItem = { url: string; name?: string };
+type CostSnapshot = {
+  estimate?: { minEstimateUsd: number; maxEstimateUsd: number; confidence: "high" | "low" };
+  spend?: { todayUsd: number; monthUsd: number };
+  pricingBasis?: { model: string; effectiveFrom: string; version: string };
+};
 const WORKOUT_WARRIOR_TEMPLATE_TITLES = new Set([
   "ig hiit workout warrior",
   "ig hiit workout warrior collective"
@@ -32,6 +37,7 @@ export default function ChatPageClient() {
   const [generationStatus, setGenerationStatus] = useState<string>("");
   const [generationError, setGenerationError] = useState<string>("");
   const [generationElapsedSeconds, setGenerationElapsedSeconds] = useState(0);
+  const [costSnapshot, setCostSnapshot] = useState<CostSnapshot | null>(null);
 
   useEffect(() => {
     if (!isGenerating) return;
@@ -55,6 +61,13 @@ export default function ChatPageClient() {
         }
       });
   }, []);
+
+  useEffect(() => {
+    void fetch(`/api/chat/costs?format=${selectedFormat}`)
+      .then((r) => r.json())
+      .then((d: CostSnapshot) => setCostSnapshot(d))
+      .catch(() => {});
+  }, [selectedFormat, messages.length]);
 
   async function createSession(title = "Single run"): Promise<string | null> {
     const res = await fetch("/api/chat/sessions", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ title }) });
@@ -157,6 +170,10 @@ export default function ChatPageClient() {
         setTempUploadNames([]);
         setAttendeeImageRef("");
         setAttendeeImageName("");
+        void fetch(`/api/chat/costs?format=${selectedFormat}`)
+          .then((r) => r.json())
+          .then((d: CostSnapshot) => setCostSnapshot(d))
+          .catch(() => {});
       }
     } finally {
       if (poller) clearInterval(poller);
@@ -397,6 +414,10 @@ export default function ChatPageClient() {
   const isFormLocked = isGenerating;
   const elapsedMinutes = String(Math.floor(generationElapsedSeconds / 60)).padStart(2, "0");
   const elapsedSeconds = String(generationElapsedSeconds % 60).padStart(2, "0");
+  const latestAssistantMessage = [...messages].reverse().find((m) => m.role === "assistant");
+  const latestMeta = latestAssistantMessage?.generation_metadata_json ? JSON.parse(latestAssistantMessage.generation_metadata_json) : null;
+  const runCostUsd = Number(latestMeta?.usage?.actualCostUsd ?? 0);
+  const runCostConfidence = String(latestMeta?.usage?.costConfidence ?? "partial");
 
   return (
     <div className="grid grid-2" style={{ position: "relative" }}>
@@ -497,6 +518,18 @@ export default function ChatPageClient() {
                   {isDownloadingPrompt ? "Preparing..." : "Download LLM Message"}
                 </button>
               </div>
+              {costSnapshot?.estimate ? (
+                <p style={{ marginTop: 8 }}>
+                  Estimated cost: ${costSnapshot.estimate.minEstimateUsd.toFixed(4)} - ${costSnapshot.estimate.maxEstimateUsd.toFixed(4)}
+                  {" "}({costSnapshot.estimate.confidence} confidence)
+                  {costSnapshot.pricingBasis ? ` | Pricing basis: ${costSnapshot.pricingBasis.model} effective ${new Date(costSnapshot.pricingBasis.effectiveFrom).toLocaleDateString()}` : ""}
+                </p>
+              ) : null}
+              <div style={{ display: "flex", gap: 10, marginTop: 8, flexWrap: "wrap" }}>
+                <small>This run: ${runCostUsd.toFixed(4)} ({runCostConfidence})</small>
+                <small>Today: ${(costSnapshot?.spend?.todayUsd ?? 0).toFixed(4)}</small>
+                <small>This month: ${(costSnapshot?.spend?.monthUsd ?? 0).toFixed(4)}</small>
+              </div>
               {generationStatus ? <p style={{ marginTop: 8 }}>{generationStatus}</p> : null}
               {generationError ? <p style={{ marginTop: 8, color: "#9b1c1c" }}>{generationError}</p> : null}
               <div style={{ marginTop: 12 }}>
@@ -513,6 +546,7 @@ export default function ChatPageClient() {
                             ? ` (via ${meta.usage.orchestratorModel})`
                             : ""}
                           {" "} - ${meta.usage.estimatedCost} - {meta.usage.durationMs}ms
+                          {meta.usage.actualCostUsd != null ? ` - actual $${Number(meta.usage.actualCostUsd).toFixed(6)} (${String(meta.usage.costConfidence ?? "partial")})` : ""}
                         </small>
                       ) : null}
                     </article>
