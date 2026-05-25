@@ -69,6 +69,7 @@ export default function ChatPageClient() {
     if (!message.trim() || isGenerating) return;
     const selectedTemplate = (bootstrap?.templates ?? []).find((tpl) => tpl.id === selectedTemplateId);
     const isWorkoutWarriorTemplate = WORKOUT_WARRIOR_TEMPLATE_TITLES.has(selectedTemplate?.title?.trim().toLowerCase() ?? "");
+    const effectiveAttendeeImageRef = attendeeImageRef || tempUploadRefs[tempUploadRefs.length - 1] || "";
     const selectedClass = (bootstrap?.classes ?? []).find((klass) => klass.id === selectedClassId);
     if (!selectedClass) {
       setGenerationError("Select a HIIT class before generating an image.");
@@ -80,11 +81,11 @@ export default function ChatPageClient() {
     }
     if (isWorkoutWarriorTemplate) {
       if (!attendeeName.trim()) {
-        setGenerationError("Enter the attendee name for IG HIIT Workout Warrior.");
+        setGenerationError("Enter the attendee name or group caption for IG HIIT Workout Warrior.");
         return;
       }
-      if (!attendeeImageRef) {
-        setGenerationError("Upload the attendee image for IG HIIT Workout Warrior.");
+      if (!effectiveAttendeeImageRef) {
+        setGenerationError("Upload the attendee or group image for IG HIIT Workout Warrior.");
         return;
       }
     }
@@ -112,7 +113,7 @@ export default function ChatPageClient() {
           message,
           promptTemplateId: selectedTemplateId || undefined,
           attendeeName: attendeeName.trim() || undefined,
-          attendeeImageRef: attendeeImageRef || undefined,
+          attendeeImageRef: effectiveAttendeeImageRef || undefined,
           locationId: selectedLocationId || undefined,
           classId: selectedClassId || undefined,
           platform: "instagram",
@@ -188,6 +189,7 @@ export default function ChatPageClient() {
     if (!message.trim() || isGenerating || isDownloadingPrompt) return;
     const selectedTemplate = (bootstrap?.templates ?? []).find((tpl) => tpl.id === selectedTemplateId);
     const isWorkoutWarriorTemplate = WORKOUT_WARRIOR_TEMPLATE_TITLES.has(selectedTemplate?.title?.trim().toLowerCase() ?? "");
+    const effectiveAttendeeImageRef = attendeeImageRef || tempUploadRefs[tempUploadRefs.length - 1] || "";
     const selectedClass = (bootstrap?.classes ?? []).find((klass) => klass.id === selectedClassId);
     if (!selectedClass) {
       setGenerationError("Select a HIIT class before generating an image.");
@@ -199,11 +201,11 @@ export default function ChatPageClient() {
     }
     if (isWorkoutWarriorTemplate) {
       if (!attendeeName.trim()) {
-        setGenerationError("Enter the attendee name for IG HIIT Workout Warrior.");
+        setGenerationError("Enter the attendee name or group caption for IG HIIT Workout Warrior.");
         return;
       }
-      if (!attendeeImageRef) {
-        setGenerationError("Upload the attendee image for IG HIIT Workout Warrior.");
+      if (!effectiveAttendeeImageRef) {
+        setGenerationError("Upload the attendee or group image for IG HIIT Workout Warrior.");
         return;
       }
     }
@@ -224,7 +226,7 @@ export default function ChatPageClient() {
           message,
           promptTemplateId: selectedTemplateId || undefined,
           attendeeName: attendeeName.trim() || undefined,
-          attendeeImageRef: attendeeImageRef || undefined,
+          attendeeImageRef: effectiveAttendeeImageRef || undefined,
           locationId: selectedLocationId || undefined,
           classId: selectedClassId || undefined,
           platform: "instagram",

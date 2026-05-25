@@ -104,12 +104,13 @@ export async function POST(req: Request) {
     }
 
     const isWorkoutWarriorTemplate = WORKOUT_WARRIOR_TEMPLATE_TITLES.has(templateTitle.trim().toLowerCase());
+    const effectiveAttendeeImageRef = body.attendeeImageRef || body.tempUploadRefs[body.tempUploadRefs.length - 1] || "";
     if (isWorkoutWarriorTemplate) {
       if (!body.attendeeName) {
         return validationError("attendee_name_required", "Provide the attendee name for the IG HIIT Workout Warrior template.");
       }
-      if (!body.attendeeImageRef) {
-        return validationError("attendee_image_required", "Upload the attendee image for the IG HIIT Workout Warrior template.");
+      if (!effectiveAttendeeImageRef) {
+        return validationError("attendee_image_required", "Upload the attendee or group image for the IG HIIT Workout Warrior template.");
       }
     }
 
@@ -154,7 +155,7 @@ export async function POST(req: Request) {
 
     const stagedImages: StagedImageReference[] = [];
     const uploadRefs = body.tempUploadRefs.map((url) => validateTempUploadRef(url, body.sessionId));
-    const attendeeRef = body.attendeeImageRef ? validateTempUploadRef(body.attendeeImageRef, body.sessionId) : null;
+    const attendeeRef = effectiveAttendeeImageRef ? validateTempUploadRef(effectiveAttendeeImageRef, body.sessionId) : null;
     const expiresAt = new Date(Date.now() + 3600_000).toISOString();
     if (attendeeRef) {
       stagedImages.push({
