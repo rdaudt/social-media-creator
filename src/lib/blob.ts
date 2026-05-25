@@ -19,6 +19,20 @@ export async function deleteTempBlob(url: string): Promise<void> {
   }
 }
 
+export async function putPermanentBlob(path: string, data: Buffer, contentType: string): Promise<{ url: string; pathname: string }> {
+  const out = await put(path, data, {
+    access: "private",
+    contentType,
+    addRandomSuffix: false,
+    token: process.env.BLOB_READ_WRITE_TOKEN
+  });
+  return { url: out.url, pathname: out.pathname };
+}
+
+export async function deleteBlobByUrl(url: string): Promise<void> {
+  await del(url, { token: process.env.BLOB_READ_WRITE_TOKEN });
+}
+
 export function createSignedBlobAccessUrl(blobUrl: string, origin: string, expiresAt: string): string {
   const exp = String(Math.floor(new Date(expiresAt).getTime() / 1000));
   const out = new URL("/api/blob", origin);

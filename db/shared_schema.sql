@@ -72,3 +72,16 @@ CREATE TABLE IF NOT EXISTS interaction_usage (
   duration_ms INTEGER NOT NULL,
   created_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS coach_hiit_class_media (
+  id TEXT PRIMARY KEY,
+  coach_google_sub TEXT NOT NULL,
+  class_id TEXT NOT NULL,
+  blob_url TEXT NOT NULL,
+  blob_pathname TEXT NOT NULL,
+  source_message_id TEXT,
+  created_at TEXT NOT NULL
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_coach_hiit_class_media_class_blob
+  ON coach_hiit_class_media (class_id, blob_url);

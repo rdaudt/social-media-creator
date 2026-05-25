@@ -75,6 +75,14 @@ export type CoachHiitClass = {
   ranAt: string | null;
 };
 
+export type CoachHiitClassMedia = {
+  id: string;
+  classId: string;
+  blobUrl: string;
+  createdAt: string;
+  sourceMessageId?: string | null;
+};
+
 export type BootstrapAsset = {
   id: string;
   title: string;

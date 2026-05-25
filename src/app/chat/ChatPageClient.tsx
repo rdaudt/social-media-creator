@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { ChatBootstrapResponse } from "@/types";
+import type { ChatBootstrapResponse, CoachHiitClassMedia } from "@/types";
 
 type Message = { id: string; role: string; content: string; generation_metadata_json?: string; attachments_json?: string };
 type TempUploadResponseItem = { url: string; name?: string };
@@ -16,7 +16,7 @@ const WORKOUT_WARRIOR_TEMPLATE_TITLES = new Set([
 ]);
 
 export default function ChatPageClient() {
-  const [activeTab, setActiveTab] = useState<"chat" | "prompt">("chat");
+  const [activeTab, setActiveTab] = useState<"chat" | "prompt" | "classMedia">("chat");
   const [bootstrap, setBootstrap] = useState<ChatBootstrapResponse | null>(null);
   const [selectedLocationId, setSelectedLocationId] = useState<string>("");
   const [selectedClassId, setSelectedClassId] = useState<string>("");
@@ -38,6 +38,10 @@ export default function ChatPageClient() {
   const [generationError, setGenerationError] = useState<string>("");
   const [generationElapsedSeconds, setGenerationElapsedSeconds] = useState(0);
   const [costSnapshot, setCostSnapshot] = useState<CostSnapshot | null>(null);
+  const [classMedia, setClassMedia] = useState<CoachHiitClassMedia[]>([]);
+  const [isLoadingClassMedia, setIsLoadingClassMedia] = useState(false);
+  const [attachStateByMessageId, setAttachStateByMessageId] = useState<Record<string, "idle" | "loading" | "success" | "error">>({});
+  const [deleteStateByMediaId, setDeleteStateByMediaId] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (!isGenerating) return;
@@ -68,6 +72,14 @@ export default function ChatPageClient() {
       .then((d: CostSnapshot) => setCostSnapshot(d))
       .catch(() => {});
   }, [selectedFormat, messages.length]);
+
+  useEffect(() => {
+    if (!selectedClassId) {
+      setClassMedia([]);
+      return;
+    }
+    void loadClassMedia(selectedClassId);
+  }, [selectedClassId]);
 
   async function createSession(title = "Single run"): Promise<string | null> {
     const res = await fetch("/api/chat/sessions", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ title }) });
@@ -390,6 +402,57 @@ export default function ChatPageClient() {
     return `/api/blob?url=${encodeURIComponent(url)}`;
   }
 
+  async function loadClassMedia(classId: string) {
+    setIsLoadingClassMedia(true);
+    try {
+      const res = await fetch(`/api/chat/class-media?classId=${encodeURIComponent(classId)}`);
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) return;
+      setClassMedia(Array.isArray(payload.media) ? payload.media : []);
+    } finally {
+      setIsLoadingClassMedia(false);
+    }
+  }
+
+  async function attachGeneratedImage(messageId: string, generatedImageUrl: string) {
+    if (!selectedClassId) {
+      setGenerationError("Select a HIIT class before attaching media.");
+      return;
+    }
+    setAttachStateByMessageId((prev) => ({ ...prev, [messageId]: "loading" }));
+    try {
+      const res = await fetch("/api/chat/class-media", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ classId: selectedClassId, generatedImageUrl, sourceMessageId: messageId })
+      });
+      if (!res.ok) {
+        setAttachStateByMessageId((prev) => ({ ...prev, [messageId]: "error" }));
+        setGenerationError("Could not attach image to class.");
+        return;
+      }
+      setAttachStateByMessageId((prev) => ({ ...prev, [messageId]: "success" }));
+      await loadClassMedia(selectedClassId);
+    } catch {
+      setAttachStateByMessageId((prev) => ({ ...prev, [messageId]: "error" }));
+      setGenerationError("Could not attach image to class.");
+    }
+  }
+
+  async function deleteClassMedia(mediaId: string) {
+    setDeleteStateByMediaId((prev) => ({ ...prev, [mediaId]: true }));
+    try {
+      const res = await fetch(`/api/chat/class-media/${mediaId}`, { method: "DELETE" });
+      if (!res.ok) {
+        setGenerationError("Could not delete class media.");
+        return;
+      }
+      if (selectedClassId) await loadClassMedia(selectedClassId);
+    } finally {
+      setDeleteStateByMediaId((prev) => ({ ...prev, [mediaId]: false }));
+    }
+  }
+
   function latestPromptEnvelope(): { assembledPrompt?: string; generationContextJson?: unknown } | null {
     for (let i = messages.length - 1; i >= 0; i -= 1) {
       const msg = messages[i];
@@ -424,6 +487,7 @@ export default function ChatPageClient() {
       <section className="card" style={{ gridColumn: "1 / span 2", display: "flex", gap: 8 }}>
         <button onClick={() => setActiveTab("chat")} disabled={activeTab === "chat" || isFormLocked}>Image description</button>
         <button onClick={() => setActiveTab("prompt")} disabled={activeTab === "prompt" || isFormLocked}>Prompt Debug</button>
+        <button onClick={() => setActiveTab("classMedia")} disabled={activeTab === "classMedia" || isFormLocked}>Class Media</button>
       </section>
       <section className="card">
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -539,6 +603,18 @@ export default function ChatPageClient() {
                     <article key={m.id} className="card">
                       {meta?.image?.signedUrl ? <img src={meta.image.signedUrl} alt="generated" style={{ width: "100%", borderRadius: 8 }} /> : null}
                       {meta?.image?.signedUrl ? <p><a href={meta.image.signedUrl} download={meta.image.fileName ?? "Generated Image.png"}>Download</a> <small>Expires {new Date(meta.image.expiresAt).toLocaleString()}</small></p> : null}
+                      {meta?.image?.signedUrl ? (
+                        <div style={{ marginBottom: 6 }}>
+                          <button
+                            onClick={() => void attachGeneratedImage(m.id, meta.image.signedUrl)}
+                            disabled={!selectedClassId || attachStateByMessageId[m.id] === "loading"}
+                          >
+                            {attachStateByMessageId[m.id] === "loading" ? "Attaching..." : "Attach to class"}
+                          </button>
+                          {attachStateByMessageId[m.id] === "success" ? <small style={{ marginLeft: 8 }}>Attached</small> : null}
+                          {attachStateByMessageId[m.id] === "error" ? <small style={{ marginLeft: 8, color: "#9b1c1c" }}>Failed</small> : null}
+                        </div>
+                      ) : null}
                       {meta?.usage ? (
                         <small>
                           {(meta.usage.imageModel ?? meta.usage.model)}
@@ -554,7 +630,7 @@ export default function ChatPageClient() {
                 })}
               </div>
             </>
-          ) : (
+          ) : activeTab === "prompt" ? (
             <>
               <h2>Prompt Debug</h2>
               <p>Complete prompt sent to the LLM for the latest generation request.</p>
@@ -571,6 +647,26 @@ export default function ChatPageClient() {
                 rows={14}
                 style={{ width: "100%", whiteSpace: "pre-wrap" }}
               />
+            </>
+          ) : (
+            <>
+              <h2>Class Media</h2>
+              {!selectedClassId ? <p>Select a HIIT class to manage attached media.</p> : null}
+              {isLoadingClassMedia ? <p>Loading class media...</p> : null}
+              {!isLoadingClassMedia && selectedClassId && classMedia.length === 0 ? <p>No media attached yet for this class.</p> : null}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12 }}>
+                {classMedia.map((media) => (
+                  <article key={media.id} className="card">
+                    {toImageSrc(media.blobUrl) ? <img src={toImageSrc(media.blobUrl) ?? ""} alt="Class media" style={{ width: "100%", borderRadius: 8 }} /> : null}
+                    <small>Attached {new Date(media.createdAt).toLocaleString()}</small>
+                    <div style={{ marginTop: 8 }}>
+                      <button onClick={() => void deleteClassMedia(media.id)} disabled={Boolean(deleteStateByMediaId[media.id])}>
+                        {deleteStateByMediaId[media.id] ? "Deleting..." : "Delete"}
+                      </button>
+                    </div>
+                  </article>
+                ))}
+              </div>
             </>
           )}
         </div>
