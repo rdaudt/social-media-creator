@@ -19,6 +19,7 @@ export default function ChatPageClient() {
   const [selectedFormat, setSelectedFormat] = useState<"square" | "portrait" | "story">("square");
   const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>([]);
   const [runSessionId, setRunSessionId] = useState<string>("");
+  const [uploadSessionId, setUploadSessionId] = useState<string>("");
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [tempUploadRefs, setTempUploadRefs] = useState<string[]>([]);
@@ -66,7 +67,6 @@ export default function ChatPageClient() {
     if (!message.trim() || isGenerating) return;
     const selectedTemplate = (bootstrap?.templates ?? []).find((tpl) => tpl.id === selectedTemplateId);
     const isWorkoutWarriorTemplate = WORKOUT_WARRIOR_TEMPLATE_TITLES.has(selectedTemplate?.title?.trim().toLowerCase() ?? "");
-    const effectiveAttendeeImageRef = attendeeImageRef || tempUploadRefs[tempUploadRefs.length - 1] || "";
     const selectedClass = (bootstrap?.classes ?? []).find((klass) => klass.id === selectedClassId);
     if (!selectedClass) {
       setGenerationError("Select a HIIT class before generating an image.");
@@ -76,19 +76,27 @@ export default function ChatPageClient() {
       setGenerationError("The selected HIIT class needs a date and start time before image generation.");
       return;
     }
-    if (isWorkoutWarriorTemplate) {
-      if (!attendeeName.trim()) {
-        setGenerationError("Enter the attendee name or group caption for IG HIIT Workout Warrior.");
-        return;
-      }
-      if (!effectiveAttendeeImageRef) {
-        setGenerationError("Upload the attendee or group image for IG HIIT Workout Warrior.");
-        return;
-      }
+    if (isWorkoutWarriorTemplate && !attendeeName.trim()) {
+      setGenerationError("Enter the attendee name or group caption for IG HIIT Workout Warrior.");
+      return;
     }
 
     const activeSessionId = await ensureRunSessionId("Generate image");
     if (!activeSessionId) return;
+    const uploadsMatchActiveSession = uploadSessionId === activeSessionId;
+    const scopedTempUploadRefs = uploadsMatchActiveSession ? tempUploadRefs : [];
+    const effectiveAttendeeImageRef = uploadsMatchActiveSession
+      ? attendeeImageRef || scopedTempUploadRefs[scopedTempUploadRefs.length - 1] || ""
+      : "";
+
+    if (isWorkoutWarriorTemplate && !uploadsMatchActiveSession) {
+      setGenerationError("Please upload the attendee/group image again for this run.");
+      return;
+    }
+    if (isWorkoutWarriorTemplate && !effectiveAttendeeImageRef) {
+      setGenerationError("Upload the attendee or group image for IG HIIT Workout Warrior.");
+      return;
+    }
 
     setIsGenerating(true);
     setGenerationError("");
@@ -117,7 +125,7 @@ export default function ChatPageClient() {
           format: selectedFormat,
           outputPreset: selectedFormat === "portrait" ? "ig_portrait_1080x1350" : selectedFormat === "story" ? "ig_story_1080x1920" : "ig_square_1080",
           selectedAssetIds,
-          tempUploadRefs
+          tempUploadRefs: scopedTempUploadRefs
         })
       });
       const payload = await res.json().catch(() => ({}));
@@ -133,6 +141,11 @@ export default function ChatPageClient() {
       setMessages(d.messages ?? []);
       if (res.ok) {
         setRunSessionId("");
+        setUploadSessionId("");
+        setTempUploadRefs([]);
+        setTempUploadNames([]);
+        setAttendeeImageRef("");
+        setAttendeeImageName("");
       }
     } finally {
       if (poller) clearInterval(poller);
@@ -177,7 +190,6 @@ export default function ChatPageClient() {
     if (!message.trim() || isGenerating || isDownloadingPrompt) return;
     const selectedTemplate = (bootstrap?.templates ?? []).find((tpl) => tpl.id === selectedTemplateId);
     const isWorkoutWarriorTemplate = WORKOUT_WARRIOR_TEMPLATE_TITLES.has(selectedTemplate?.title?.trim().toLowerCase() ?? "");
-    const effectiveAttendeeImageRef = attendeeImageRef || tempUploadRefs[tempUploadRefs.length - 1] || "";
     const selectedClass = (bootstrap?.classes ?? []).find((klass) => klass.id === selectedClassId);
     if (!selectedClass) {
       setGenerationError("Select a HIIT class before generating an image.");
@@ -187,19 +199,27 @@ export default function ChatPageClient() {
       setGenerationError("The selected HIIT class needs a date and start time before image generation.");
       return;
     }
-    if (isWorkoutWarriorTemplate) {
-      if (!attendeeName.trim()) {
-        setGenerationError("Enter the attendee name or group caption for IG HIIT Workout Warrior.");
-        return;
-      }
-      if (!effectiveAttendeeImageRef) {
-        setGenerationError("Upload the attendee or group image for IG HIIT Workout Warrior.");
-        return;
-      }
+    if (isWorkoutWarriorTemplate && !attendeeName.trim()) {
+      setGenerationError("Enter the attendee name or group caption for IG HIIT Workout Warrior.");
+      return;
     }
 
     const activeSessionId = await ensureRunSessionId("Download prompt");
     if (!activeSessionId) return;
+    const uploadsMatchActiveSession = uploadSessionId === activeSessionId;
+    const scopedTempUploadRefs = uploadsMatchActiveSession ? tempUploadRefs : [];
+    const effectiveAttendeeImageRef = uploadsMatchActiveSession
+      ? attendeeImageRef || scopedTempUploadRefs[scopedTempUploadRefs.length - 1] || ""
+      : "";
+
+    if (isWorkoutWarriorTemplate && !uploadsMatchActiveSession) {
+      setGenerationError("Please upload the attendee/group image again for this run.");
+      return;
+    }
+    if (isWorkoutWarriorTemplate && !effectiveAttendeeImageRef) {
+      setGenerationError("Upload the attendee or group image for IG HIIT Workout Warrior.");
+      return;
+    }
 
     setIsDownloadingPrompt(true);
     setGenerationError("");
@@ -221,7 +241,7 @@ export default function ChatPageClient() {
           format: selectedFormat,
           outputPreset: selectedFormat === "portrait" ? "ig_portrait_1080x1350" : selectedFormat === "story" ? "ig_story_1080x1920" : "ig_square_1080",
           selectedAssetIds,
-          tempUploadRefs
+          tempUploadRefs: scopedTempUploadRefs
         })
       });
       const payload = await res.json().catch(() => ({}));
@@ -261,6 +281,11 @@ export default function ChatPageClient() {
       link.remove();
       URL.revokeObjectURL(objectUrl);
       setRunSessionId("");
+      setUploadSessionId("");
+      setTempUploadRefs([]);
+      setTempUploadNames([]);
+      setAttendeeImageRef("");
+      setAttendeeImageName("");
     } finally {
       setIsDownloadingPrompt(false);
       setGenerationStatus("");
@@ -294,6 +319,7 @@ export default function ChatPageClient() {
     }
 
     const uploads: TempUploadResponseItem[] = Array.isArray(payload.uploads) ? payload.uploads : [];
+    setUploadSessionId(activeSessionId);
     setTempUploadRefs((prev) => [...prev, ...uploads.map((upload) => String(upload.url))]);
     setTempUploadNames((prev) => [...prev, ...uploads.map((upload) => String(upload.name ?? "Reference image"))]);
   }
@@ -325,6 +351,7 @@ export default function ChatPageClient() {
       setGenerationError("Attendee image upload failed.");
       return;
     }
+    setUploadSessionId(activeSessionId);
     setAttendeeImageRef(String(upload.url));
     setAttendeeImageName(String(upload.name ?? file.name ?? "Attendee image"));
   }
