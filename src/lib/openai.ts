@@ -11,36 +11,51 @@ type ImageGenerationResponse = {
       image_base64?: string | null;
     }>;
   }>;
+  usage?: {
+    input_tokens?: number;
+    output_tokens?: number;
+  } | null;
 };
 
-export async function generateImageWithContext(inputPrompt: string, imageUrls: string[]): Promise<{ b64: string; usage: { input: number; output: number }; model: string }> {
+type OpenAIImageSize = "1024x1024" | "1024x1536" | "1536x1024" | "1024x1792";
+type ImageUsage = { input: number; output: number };
+type GeneratedImage = { b64: string; usage: ImageUsage };
+
+export async function generateImageWithContext(
+  inputPrompt: string,
+  imageUrls: string[],
+  options: { aspectRatio?: "1:1" | "4:5" | "9:16" } = {}
+): Promise<{ b64: string; usage: ImageUsage; model: string }> {
   const model = process.env.OPENAI_IMAGE_MODEL?.trim() || "gpt-image-2";
   const responsesModel = process.env.OPENAI_RESPONSES_MODEL?.trim() || "gpt-4.1";
-  const size = "1024x1536";
+  const size = resolveImageSize(options.aspectRatio);
   const quality = "high";
   const outputFormat = "png";
 
-  const imageB64 = imageUrls.length > 0
-    ? await generateFromImageUrls(responsesModel, inputPrompt, imageUrls, size, quality, outputFormat)
+  const generated = imageUrls.length > 0
+    ? await generateFromImageUrls(responsesModel, model, inputPrompt, imageUrls, size, quality, outputFormat)
     : await generateFromPrompt(model, inputPrompt, size, quality, outputFormat);
 
   return {
-    b64: imageB64,
-    usage: {
-      input: 0,
-      output: 0
-    },
+    b64: generated.b64,
+    usage: generated.usage,
     model: imageUrls.length > 0 ? responsesModel : model
   };
+}
+
+function resolveImageSize(aspectRatio?: "1:1" | "4:5" | "9:16"): OpenAIImageSize {
+  if (aspectRatio === "1:1") return "1024x1024";
+  if (aspectRatio === "9:16") return "1024x1792";
+  return "1024x1536";
 }
 
 async function generateFromPrompt(
   model: string,
   prompt: string,
-  size: "1024x1024" | "1024x1536" | "1536x1024",
+  size: OpenAIImageSize,
   quality: "low" | "medium" | "high",
   outputFormat: "png" | "jpeg" | "webp"
-): Promise<string> {
+): Promise<GeneratedImage> {
   const result = await client.images.generate({
     model,
     prompt,
@@ -50,20 +65,27 @@ async function generateFromPrompt(
   });
   const b64 = result.data?.[0]?.b64_json;
   if (!b64) throw new Error("no_image_output");
-  return b64;
+  return {
+    b64,
+    usage: {
+      input: result.usage?.input_tokens ?? 0,
+      output: result.usage?.output_tokens ?? 0
+    }
+  };
 }
 
 async function generateFromImageUrls(
-  model: string,
+  responsesModel: string,
+  imageModel: string,
   prompt: string,
   imageUrls: string[],
-  size: "1024x1024" | "1024x1536" | "1536x1024",
+  size: OpenAIImageSize,
   quality: "low" | "medium" | "high",
   outputFormat: "png" | "jpeg" | "webp"
-): Promise<string> {
+): Promise<GeneratedImage> {
   console.info(`[openai.image] responses_generate_start imageRefs=${imageUrls.length}`);
   const result = await client.responses.create({
-    model,
+    model: responsesModel,
     input: [
       {
         role: "user",
@@ -76,6 +98,7 @@ async function generateFromImageUrls(
     tools: [
       {
         type: "image_generation",
+        model: imageModel,
         quality,
         size,
         output_format: outputFormat
@@ -91,6 +114,12 @@ async function generateFromImageUrls(
     })
     .find((item): item is string => typeof item === "string" && item.length > 0);
   if (!b64) throw new Error("no_image_output");
-  return b64;
+  return {
+    b64,
+    usage: {
+      input: result.usage?.input_tokens ?? 0,
+      output: result.usage?.output_tokens ?? 0
+    }
+  };
 }
 

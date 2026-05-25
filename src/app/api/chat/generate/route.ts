@@ -227,7 +227,11 @@ export async function POST(req: Request) {
     const imageInputs = stagedImages.map((ref) => ref.url);
     const imageRoles = stagedImages.map((ref) => ref.role).join(",");
     console.info(`[chat.generate][${reqId}] image_generate_start imageInputs=${imageInputs.length} roles=${imageRoles || "none"}`);
-    const generated = await withTimeout(generateImageWithContext(assembledPrompt, imageInputs), 240_000, "image_generation_timeout");
+    const generated = await withTimeout(
+      generateImageWithContext(assembledPrompt, imageInputs, { aspectRatio: outputSpec.aspectRatio as "1:1" | "4:5" | "9:16" }),
+      240_000,
+      "image_generation_timeout"
+    );
     console.info(`[chat.generate][${reqId}] image_generate_done`);
     const blob = await putTempBlob(`temp/${body.sessionId}/generated/${newId("img")}.png`, Buffer.from(generated.b64, "base64"), "image/png");
     console.info(`[chat.generate][${reqId}] blob_saved path=${blob.pathname}`);
