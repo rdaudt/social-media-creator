@@ -302,7 +302,15 @@ export default function ChatPageClient() {
                 <p>{m.content}</p>
                 {meta?.image?.signedUrl ? <img src={meta.image.signedUrl} alt="generated" style={{ width: "100%", borderRadius: 8 }} /> : null}
                 {meta?.image?.signedUrl ? <p><a href={meta.image.signedUrl} download>Download</a> <small>Expires {new Date(meta.image.expiresAt).toLocaleString()}</small></p> : null}
-                {meta?.usage ? <small>{meta.usage.model} - ${meta.usage.estimatedCost} - {meta.usage.durationMs}ms</small> : null}
+                {meta?.usage ? (
+                  <small>
+                    {(meta.usage.imageModel ?? meta.usage.model)}
+                    {meta.usage.orchestratorModel && meta.usage.orchestratorModel !== (meta.usage.imageModel ?? meta.usage.model)
+                      ? ` (via ${meta.usage.orchestratorModel})`
+                      : ""}
+                    {" "} - ${meta.usage.estimatedCost} - {meta.usage.durationMs}ms
+                  </small>
+                ) : null}
               </article>
             );
           })}

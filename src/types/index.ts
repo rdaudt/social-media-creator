@@ -17,6 +17,8 @@ export type GenerateResponse = {
     estimatedCost: number;
     durationMs: number;
     model: string;
+    orchestratorModel?: string;
+    imageModel?: string;
   };
   status: "completed" | "failed";
   error?: { code: string; message: string };

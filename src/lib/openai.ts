@@ -20,12 +20,17 @@ type ImageGenerationResponse = {
 type OpenAIImageSize = "1024x1024" | "1024x1536" | "1536x1024" | "1024x1792";
 type ImageUsage = { input: number; output: number };
 type GeneratedImage = { b64: string; usage: ImageUsage };
+type GeneratedImageWithModels = GeneratedImage & {
+  orchestratorModel: string;
+  imageModel: string;
+  displayModel: string;
+};
 
 export async function generateImageWithContext(
   inputPrompt: string,
   imageUrls: string[],
   options: { aspectRatio?: "1:1" | "4:5" | "9:16" } = {}
-): Promise<{ b64: string; usage: ImageUsage; model: string }> {
+): Promise<GeneratedImageWithModels> {
   const model = process.env.OPENAI_IMAGE_MODEL?.trim() || "gpt-image-2";
   const responsesModel = process.env.OPENAI_RESPONSES_MODEL?.trim() || "gpt-4.1";
   const size = resolveImageSize(options.aspectRatio);
@@ -36,10 +41,21 @@ export async function generateImageWithContext(
     ? await generateFromImageUrls(responsesModel, model, inputPrompt, imageUrls, size, quality, outputFormat)
     : await generateFromPrompt(model, inputPrompt, size, quality, outputFormat);
 
+  if (imageUrls.length > 0) {
+    return {
+      b64: generated.b64,
+      usage: generated.usage,
+      orchestratorModel: responsesModel,
+      imageModel: model,
+      displayModel: model
+    };
+  }
   return {
     b64: generated.b64,
     usage: generated.usage,
-    model: imageUrls.length > 0 ? responsesModel : model
+    orchestratorModel: model,
+    imageModel: model,
+    displayModel: model
   };
 }
 
@@ -83,7 +99,7 @@ async function generateFromImageUrls(
   quality: "low" | "medium" | "high",
   outputFormat: "png" | "jpeg" | "webp"
 ): Promise<GeneratedImage> {
-  console.info(`[openai.image] responses_generate_start imageRefs=${imageUrls.length}`);
+  console.info(`[openai.image] responses_generate_start orchestratorModel=${responsesModel} imageModel=${imageModel} imageRefs=${imageUrls.length}`);
   const result = await client.responses.create({
     model: responsesModel,
     input: [
@@ -114,6 +130,7 @@ async function generateFromImageUrls(
     })
     .find((item): item is string => typeof item === "string" && item.length > 0);
   if (!b64) throw new Error("no_image_output");
+  console.info(`[openai.image] responses_generate_done orchestratorModel=${responsesModel} imageModel=${imageModel} imageRefs=${imageUrls.length}`);
   return {
     b64,
     usage: {

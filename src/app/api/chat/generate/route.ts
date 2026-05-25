@@ -233,6 +233,9 @@ export async function POST(req: Request) {
       "image_generation_timeout"
     );
     console.info(`[chat.generate][${reqId}] image_generate_done`);
+    console.info(
+      `[chat.generate][${reqId}] image_model_usage path=${imageInputs.length > 0 ? "responses" : "images"} orchestratorModel=${generated.orchestratorModel} imageModel=${generated.imageModel} displayModel=${generated.displayModel} imageRefs=${imageInputs.length} roles=${imageRoles || "none"}`
+    );
     const blob = await putTempBlob(`temp/${body.sessionId}/generated/${newId("img")}.png`, Buffer.from(generated.b64, "base64"), "image/png");
     console.info(`[chat.generate][${reqId}] blob_saved path=${blob.pathname}`);
     const durationMs = Date.now() - start;
@@ -242,7 +245,15 @@ export async function POST(req: Request) {
     const generatedExpiresAt = new Date(Date.now() + 3600_000).toISOString();
     const metadata = {
       image: { signedUrl: createSignedBlobAccessUrl(blob.url, publicOrigin, generatedExpiresAt), expiresAt: generatedExpiresAt },
-      usage: { inputTokens: generated.usage.input, outputTokens: generated.usage.output, estimatedCost, durationMs, model: generated.model },
+      usage: {
+        inputTokens: generated.usage.input,
+        outputTokens: generated.usage.output,
+        estimatedCost,
+        durationMs,
+        model: generated.displayModel,
+        orchestratorModel: generated.orchestratorModel,
+        imageModel: generated.imageModel
+      },
       outputSpec,
       promptEnvelope
     };
@@ -250,7 +261,7 @@ export async function POST(req: Request) {
     await db.batch([
       { sql: `INSERT INTO chat_messages (id, session_id, role, content, attachments_json, generation_metadata_json, created_at, parent_message_id) VALUES (?, ?, 'assistant', ?, ?, ?, ?, ?)`, args: [assistantMessageId, body.sessionId, "Generated image", JSON.stringify({ blobPath: blob.pathname }), JSON.stringify(metadata), nowIso(), userMessageId] },
       { sql: `UPDATE chat_sessions SET updated_at = ? WHERE id = ?`, args: [nowIso(), body.sessionId] },
-      { sql: `INSERT INTO interaction_usage (id, owner_google_sub, session_id, request_type, model, input_tokens, output_tokens, estimated_cost, duration_ms, created_at) VALUES (?, ?, ?, 'image_generation', ?, ?, ?, ?, ?, ?)`, args: [newId("usage"), user.sub, body.sessionId, generated.model, generated.usage.input, generated.usage.output, estimatedCost, durationMs, nowIso()] },
+      { sql: `INSERT INTO interaction_usage (id, owner_google_sub, session_id, request_type, model, input_tokens, output_tokens, estimated_cost, duration_ms, created_at) VALUES (?, ?, ?, 'image_generation', ?, ?, ?, ?, ?, ?)`, args: [newId("usage"), user.sub, body.sessionId, generated.displayModel, generated.usage.input, generated.usage.output, estimatedCost, durationMs, nowIso()] },
       { sql: `INSERT INTO generation_events (id, owner_google_sub, session_id, message_id, status, created_at) VALUES (?, ?, ?, ?, 'completed', ?)`, args: [newId("evt"), user.sub, body.sessionId, assistantMessageId, nowIso()] }
     ], "write");
     console.info(`[chat.generate][${reqId}] db_persist_done assistantMessageId=${assistantMessageId}`);
