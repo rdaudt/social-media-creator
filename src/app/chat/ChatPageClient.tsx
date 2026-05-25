@@ -480,7 +480,13 @@ export default function ChatPageClient() {
           {activeTab === "chat" ? (
             <>
         <h2>Chat</h2>
-        <textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={4} placeholder="Describe the image you want to generate" />
+        <textarea
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          rows={16}
+          placeholder="Describe the image you want to generate"
+          style={{ width: "100%", minHeight: 360, resize: "vertical" }}
+        />
         <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
           <button onClick={submitGenerate} disabled={isGenerating}>{isGenerating ? "Generating..." : "Generate"}</button>
           <button onClick={submitDownloadPrompt} disabled={isGenerating || isDownloadingPrompt}>
