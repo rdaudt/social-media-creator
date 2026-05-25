@@ -42,6 +42,7 @@ export default function ChatPageClient() {
   const [isLoadingClassMedia, setIsLoadingClassMedia] = useState(false);
   const [attachStateByMessageId, setAttachStateByMessageId] = useState<Record<string, "idle" | "loading" | "success" | "error">>({});
   const [deleteStateByMediaId, setDeleteStateByMediaId] = useState<Record<string, boolean>>({});
+  const [selectedClassMediaPreviewUrl, setSelectedClassMediaPreviewUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isGenerating) return;
@@ -657,7 +658,15 @@ export default function ChatPageClient() {
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12 }}>
                 {classMedia.map((media) => (
                   <article key={media.id} className="card">
-                    {toImageSrc(media.blobUrl) ? <img src={toImageSrc(media.blobUrl) ?? ""} alt="Class media" style={{ width: "100%", borderRadius: 8 }} /> : null}
+                    {toImageSrc(media.blobUrl) ? (
+                      <button
+                        onClick={() => setSelectedClassMediaPreviewUrl(toImageSrc(media.blobUrl))}
+                        style={{ border: 0, background: "transparent", padding: 0, cursor: "pointer", width: "100%" }}
+                        aria-label="Open class media preview"
+                      >
+                        <img src={toImageSrc(media.blobUrl) ?? ""} alt="Class media" style={{ width: "100%", borderRadius: 8 }} />
+                      </button>
+                    ) : null}
                     <small>Attached {new Date(media.createdAt).toLocaleString()}</small>
                     <div style={{ marginTop: 8 }}>
                       <button onClick={() => void deleteClassMedia(media.id)} disabled={Boolean(deleteStateByMediaId[media.id])}>
@@ -671,6 +680,30 @@ export default function ChatPageClient() {
           )}
         </div>
       </section>
+      {selectedClassMediaPreviewUrl ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setSelectedClassMediaPreviewUrl(null)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0, 0, 0, 0.7)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1100,
+            padding: 16
+          }}
+        >
+          <div className="card" style={{ maxWidth: "95vw", maxHeight: "95vh" }} onClick={(e) => e.stopPropagation()}>
+            <img src={selectedClassMediaPreviewUrl} alt="Class media preview" style={{ maxWidth: "90vw", maxHeight: "80vh", borderRadius: 8 }} />
+            <div style={{ marginTop: 8, textAlign: "right" }}>
+              <button onClick={() => setSelectedClassMediaPreviewUrl(null)}>Close</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       {isGenerating ? (
         <div
           role="dialog"
