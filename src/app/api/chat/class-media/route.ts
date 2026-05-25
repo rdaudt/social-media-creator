@@ -70,7 +70,7 @@ export async function GET(req: Request) {
     if (!classOwned) return NextResponse.json({ error: "forbidden" }, { status: 403 });
 
     const res = await db.execute({
-      sql: `SELECT id, class_id, blob_url, source_message_id, created_at
+      sql: `SELECT id, class_id, blob_url, source_message_id, is_sharable, created_at
             FROM coach_hiit_class_media
             WHERE coach_google_sub = ? AND class_id = ?
             ORDER BY created_at DESC`,
@@ -82,6 +82,7 @@ export async function GET(req: Request) {
         id: String(row.id),
         classId: String(row.class_id),
         blobUrl: String(row.blob_url),
+        isSharable: Number(row.is_sharable ?? 0) === 1,
         createdAt: String(row.created_at),
         sourceMessageId: row.source_message_id == null ? null : String(row.source_message_id)
       }))
@@ -127,7 +128,7 @@ export async function POST(req: Request) {
 
     const blob = await putPermanentBlob(permanentPath, Buffer.from(await fetchRes.arrayBuffer()), contentType);
     const existing = await db.execute({
-      sql: `SELECT id, class_id, blob_url, source_message_id, created_at
+      sql: `SELECT id, class_id, blob_url, source_message_id, is_sharable, created_at
             FROM coach_hiit_class_media
             WHERE class_id = ? AND blob_url = ?
             LIMIT 1`,
@@ -141,6 +142,7 @@ export async function POST(req: Request) {
           id: String(row.id),
           classId: String(row.class_id),
           blobUrl: String(row.blob_url),
+          isSharable: Number(row.is_sharable ?? 0) === 1,
           createdAt: String(row.created_at),
           sourceMessageId: row.source_message_id == null ? null : String(row.source_message_id)
         },
@@ -156,7 +158,7 @@ export async function POST(req: Request) {
       args: [id, user.sub, classId, blob.url, blob.pathname, sourceMessageId, createdAt]
     });
 
-    return NextResponse.json({ media: { id, classId, blobUrl: blob.url, createdAt, sourceMessageId } }, { status: 201 });
+    return NextResponse.json({ media: { id, classId, blobUrl: blob.url, isSharable: false, createdAt, sourceMessageId } }, { status: 201 });
   } catch (error) {
     if (error instanceof Error && (
       error.message === "invalid_generated_image_url" ||

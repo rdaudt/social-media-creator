@@ -52,3 +52,52 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
     return authErrorResponse(error) ?? NextResponse.json({ error: "internal_error" }, { status: 500 });
   }
 }
+
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    await bootstrapSchema();
+    const user = await requireCoachSessionUser();
+    const { id } = await params;
+    const tenantId = await getTenantIdForUserEmail(user.email);
+    const body = await req.json().catch(() => ({}));
+    if (typeof body.isSharable !== "boolean") {
+      return NextResponse.json({ error: "invalid_payload" }, { status: 400 });
+    }
+
+    const rowRes = await db.execute({
+      sql: `SELECT m.id, m.class_id, m.blob_url, m.source_message_id, m.created_at
+            FROM coach_hiit_class_media m
+            WHERE m.id = ?
+              AND m.coach_google_sub = ?
+              AND EXISTS (
+                SELECT 1 FROM coach_hiit_classes c
+                WHERE c.id = m.class_id
+                  AND (c.coach_google_sub = ? OR (? IS NOT NULL AND c.tenant_id = ?))
+              )
+            LIMIT 1`,
+      args: [id, user.sub, user.sub, tenantId, tenantId]
+    });
+    const row = rowRes.rows[0];
+    if (!row) return NextResponse.json({ error: "not_found" }, { status: 404 });
+
+    await db.execute({
+      sql: `UPDATE coach_hiit_class_media
+            SET is_sharable = ?
+            WHERE id = ? AND coach_google_sub = ?`,
+      args: [body.isSharable ? 1 : 0, id, user.sub]
+    });
+
+    return NextResponse.json({
+      media: {
+        id: String(row.id),
+        classId: String(row.class_id),
+        blobUrl: String(row.blob_url),
+        isSharable: body.isSharable,
+        createdAt: String(row.created_at),
+        sourceMessageId: row.source_message_id == null ? null : String(row.source_message_id)
+      }
+    });
+  } catch (error) {
+    return authErrorResponse(error) ?? NextResponse.json({ error: "internal_error" }, { status: 500 });
+  }
+}

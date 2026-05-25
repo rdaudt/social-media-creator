@@ -80,6 +80,7 @@ CREATE TABLE IF NOT EXISTS coach_hiit_class_media (
   blob_url TEXT NOT NULL,
   blob_pathname TEXT NOT NULL,
   source_message_id TEXT,
+  is_sharable INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL
 );
 

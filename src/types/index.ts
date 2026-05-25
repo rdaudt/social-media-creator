@@ -79,6 +79,7 @@ export type CoachHiitClassMedia = {
   id: string;
   classId: string;
   blobUrl: string;
+  isSharable: boolean;
   createdAt: string;
   sourceMessageId?: string | null;
 };

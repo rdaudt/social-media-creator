@@ -42,6 +42,7 @@ export default function ChatPageClient() {
   const [isLoadingClassMedia, setIsLoadingClassMedia] = useState(false);
   const [attachStateByMessageId, setAttachStateByMessageId] = useState<Record<string, "idle" | "loading" | "success" | "error">>({});
   const [deleteStateByMediaId, setDeleteStateByMediaId] = useState<Record<string, boolean>>({});
+  const [shareStateByMediaId, setShareStateByMediaId] = useState<Record<string, boolean>>({});
   const [selectedClassMediaPreviewUrl, setSelectedClassMediaPreviewUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -454,6 +455,24 @@ export default function ChatPageClient() {
     }
   }
 
+  async function toggleClassMediaSharable(mediaId: string, isSharable: boolean) {
+    setShareStateByMediaId((prev) => ({ ...prev, [mediaId]: true }));
+    try {
+      const res = await fetch(`/api/chat/class-media/${mediaId}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ isSharable })
+      });
+      if (!res.ok) {
+        setGenerationError("Could not update share setting.");
+        return;
+      }
+      setClassMedia((prev) => prev.map((media) => (media.id === mediaId ? { ...media, isSharable } : media)));
+    } finally {
+      setShareStateByMediaId((prev) => ({ ...prev, [mediaId]: false }));
+    }
+  }
+
   function latestPromptEnvelope(): { assembledPrompt?: string; generationContextJson?: unknown } | null {
     for (let i = messages.length - 1; i >= 0; i -= 1) {
       const msg = messages[i];
@@ -669,10 +688,22 @@ export default function ChatPageClient() {
                     ) : null}
                     <small>Attached {new Date(media.createdAt).toLocaleString()}</small>
                     <div style={{ marginTop: 8 }}>
+                      <button
+                        onClick={() => void toggleClassMediaSharable(media.id, !media.isSharable)}
+                        disabled={Boolean(shareStateByMediaId[media.id])}
+                        style={{ marginRight: 8 }}
+                      >
+                        {shareStateByMediaId[media.id]
+                          ? "Saving..."
+                          : media.isSharable
+                            ? "Unmark sharable"
+                            : "Mark as sharable"}
+                      </button>
                       <button onClick={() => void deleteClassMedia(media.id)} disabled={Boolean(deleteStateByMediaId[media.id])}>
                         {deleteStateByMediaId[media.id] ? "Deleting..." : "Delete"}
                       </button>
                     </div>
+                    <small>{media.isSharable ? "Sharable: yes" : "Sharable: no"}</small>
                   </article>
                 ))}
               </div>
