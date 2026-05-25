@@ -4,9 +4,11 @@ import { useEffect, useState } from "react";
 import type { ChatBootstrapResponse } from "@/types";
 
 type Session = { id: string; title: string };
-type Message = { id: string; role: string; content: string; generation_metadata_json?: string };
+type Message = { id: string; role: string; content: string; generation_metadata_json?: string; attachments_json?: string };
+type TempUploadResponseItem = { url: string; name?: string };
 
 export default function ChatPageClient() {
+  const [activeTab, setActiveTab] = useState<"chat" | "prompt">("chat");
   const [sessions, setSessions] = useState<Session[]>([]);
   const [sessionId, setSessionId] = useState<string>("");
   const [bootstrap, setBootstrap] = useState<ChatBootstrapResponse | null>(null);
@@ -17,6 +19,11 @@ export default function ChatPageClient() {
   const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>([]);
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
+  const [tempUploadRefs, setTempUploadRefs] = useState<string[]>([]);
+  const [tempUploadNames, setTempUploadNames] = useState<string[]>([]);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generationStatus, setGenerationStatus] = useState<string>("");
+  const [generationError, setGenerationError] = useState<string>("");
 
   useEffect(() => {
     void fetch("/api/chat/bootstrap")
@@ -26,8 +33,10 @@ export default function ChatPageClient() {
         setSessions((d.sessions ?? []).map((s) => ({ id: s.id, title: s.title })));
         setSessionId(d.sessions?.[0]?.id ?? "");
         setSelectedLocationId(d.defaults?.selectedLocationId ?? "");
-        setSelectedClassId(d.defaults?.selectedClassId ?? "");
-        if (d.templates?.[0]?.id) setSelectedTemplateId(d.templates[0].id);
+        if (d.templates?.[0]) {
+          setSelectedTemplateId(d.templates[0].id);
+          setMessage(d.templates[0].promptText);
+        }
       });
   }, []);
 
@@ -44,26 +53,65 @@ export default function ChatPageClient() {
   }
 
   async function submitGenerate() {
-    if (!sessionId || !message.trim()) return;
-    await fetch("/api/chat/generate", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        sessionId,
-        message,
-        promptTemplateId: selectedTemplateId || undefined,
-        locationId: selectedLocationId || undefined,
-        classId: selectedClassId || undefined,
-        platform: "instagram",
-        format: selectedFormat,
-        outputPreset: selectedFormat === "portrait" ? "ig_portrait_1080x1350" : selectedFormat === "story" ? "ig_story_1080x1920" : "ig_square_1080",
-        selectedAssetIds,
-        tempUploadRefs: []
-      })
-    });
-    setMessage("");
-    const d = await fetch(`/api/chat/sessions/${sessionId}/messages`).then((r) => r.json());
-    setMessages(d.messages ?? []);
+    if (!sessionId || !message.trim() || isGenerating) return;
+    const selectedClass = (bootstrap?.classes ?? []).find((klass) => klass.id === selectedClassId);
+    if (!selectedClass) {
+      setGenerationError("Select a HIIT class before generating an image.");
+      return;
+    }
+    if (!selectedClass.classDate || !(selectedClass.startTime ?? selectedClass.ranAt)) {
+      setGenerationError("The selected HIIT class needs a date and start time before image generation.");
+      return;
+    }
+
+    setIsGenerating(true);
+    setGenerationError("");
+    setGenerationStatus("Image creation request submitted. Waiting for return from the LLM...");
+    let poller: ReturnType<typeof setInterval> | null = null;
+    try {
+      poller = setInterval(() => {
+        void fetch(`/api/chat/sessions/${sessionId}/messages`)
+          .then((r) => r.json())
+          .then((d) => setMessages(d.messages ?? []))
+          .catch(() => {});
+      }, 1200);
+
+      const res = await fetch("/api/chat/generate", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          sessionId,
+          message,
+          promptTemplateId: selectedTemplateId || undefined,
+          locationId: selectedLocationId || undefined,
+          classId: selectedClassId || undefined,
+          platform: "instagram",
+          format: selectedFormat,
+          outputPreset: selectedFormat === "portrait" ? "ig_portrait_1080x1350" : selectedFormat === "story" ? "ig_story_1080x1920" : "ig_square_1080",
+          selectedAssetIds,
+          tempUploadRefs
+        })
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const errorMessage = typeof payload?.error?.message === "string"
+          ? payload.error.message
+          : typeof payload?.error === "string"
+            ? payload.error
+          : "Image generation failed.";
+        setGenerationError(errorMessage);
+      } else {
+        setMessage("");
+        setTempUploadRefs([]);
+        setTempUploadNames([]);
+      }
+      const d = await fetch(`/api/chat/sessions/${sessionId}/messages`).then((r) => r.json());
+      setMessages(d.messages ?? []);
+    } finally {
+      if (poller) clearInterval(poller);
+      setIsGenerating(false);
+      setGenerationStatus("");
+    }
   }
 
   function toggleAsset(assetId: string) {
@@ -82,10 +130,48 @@ export default function ChatPageClient() {
     setSelectedClassId(classId);
     const selected = (bootstrap?.classes ?? []).find((klass) => klass.id === classId);
     if (!selected?.locationLabelAtRun) return;
-    const matchingLocation = (bootstrap?.locations ?? []).find((loc) => loc.locationName === selected.locationLabelAtRun);
+    const classLocation = selected.locationLabelAtRun.trim().toLowerCase();
+    const matchingLocation = (bootstrap?.locations ?? []).find((loc) => {
+      const names = [loc.locationName, loc.businessName].map((name) => (name ?? "").trim().toLowerCase());
+      return names.some((name) => name === classLocation);
+    });
     if (matchingLocation?.id) {
       setSelectedLocationId(matchingLocation.id);
     }
+  }
+
+  function onTemplateChange(templateId: string) {
+    setSelectedTemplateId(templateId);
+    const selected = (bootstrap?.templates ?? []).find((tpl) => tpl.id === templateId);
+    setMessage(selected?.promptText ?? "");
+  }
+
+  async function uploadReferenceFiles(files: FileList | null) {
+    if (!files?.length || !sessionId) return;
+    setGenerationError("");
+    const selectedFiles = Array.from(files);
+    const invalid = selectedFiles.find((file) => file.type !== "image/jpeg" && file.type !== "image/png");
+    if (invalid) {
+      setGenerationError("Only JPG and PNG reference images can be uploaded.");
+      return;
+    }
+
+    const form = new FormData();
+    form.set("sessionId", sessionId);
+    for (const file of selectedFiles) {
+      form.append("files", file);
+    }
+
+    const res = await fetch("/api/chat/generate", { method: "POST", body: form });
+    const payload = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setGenerationError("Reference image upload failed.");
+      return;
+    }
+
+    const uploads: TempUploadResponseItem[] = Array.isArray(payload.uploads) ? payload.uploads : [];
+    setTempUploadRefs((prev) => [...prev, ...uploads.map((upload) => String(upload.url))]);
+    setTempUploadNames((prev) => [...prev, ...uploads.map((upload) => String(upload.name ?? "Reference image"))]);
   }
 
   function toImageSrc(url: string | null | undefined): string | null {
@@ -94,8 +180,32 @@ export default function ChatPageClient() {
     return `/api/blob?url=${encodeURIComponent(url)}`;
   }
 
+  function latestPromptEnvelope(): { assembledPrompt?: string; generationContextJson?: unknown } | null {
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      const msg = messages[i];
+      if (msg.role !== "user" || !msg.attachments_json) continue;
+      try {
+        const parsed = JSON.parse(msg.attachments_json) as { promptEnvelope?: { assembledPrompt?: string; generationContextJson?: unknown } };
+        if (parsed.promptEnvelope?.assembledPrompt) return parsed.promptEnvelope;
+      } catch {
+        // ignore parse errors and continue scanning older messages
+      }
+    }
+    return null;
+  }
+
+  const promptEnvelope = latestPromptEnvelope();
+  const assembledPrompt = promptEnvelope?.assembledPrompt ?? "";
+  const generationContextText = promptEnvelope?.generationContextJson
+    ? JSON.stringify(promptEnvelope.generationContextJson, null, 2)
+    : "";
+
   return (
     <div className="grid grid-2">
+      <section className="card" style={{ gridColumn: "1 / span 2", display: "flex", gap: 8 }}>
+        <button onClick={() => setActiveTab("chat")} disabled={activeTab === "chat"}>Chat</button>
+        <button onClick={() => setActiveTab("prompt")} disabled={activeTab === "prompt"}>Prompt Debug</button>
+      </section>
       <section className="card">
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {toImageSrc(bootstrap?.coach?.coachPhotoUrl) ? (
@@ -119,7 +229,7 @@ export default function ChatPageClient() {
         ) : null}
         <h3 style={{ marginTop: 10 }}>HIIT Classes</h3>
         <select value={selectedClassId} onChange={(e) => onClassChange(e.target.value)}>
-          <option value="">Latest available</option>
+          <option value="">Select a class</option>
           {(bootstrap?.classes ?? []).map((klass) => (
             <option key={klass.id} value={klass.id}>
               {formatClassEntry(klass.classDate, klass.startTime ?? klass.ranAt, klass.locationLabelAtRun, klass.timerNameAtRun)}
@@ -127,7 +237,7 @@ export default function ChatPageClient() {
           ))}
         </select>
         <h3 style={{ marginTop: 10 }}>Template</h3>
-        <select value={selectedTemplateId} onChange={(e) => setSelectedTemplateId(e.target.value)}>
+        <select value={selectedTemplateId} onChange={(e) => onTemplateChange(e.target.value)}>
           <option value="">No template</option>
           {(bootstrap?.templates ?? []).map((tpl) => (
             <option key={tpl.id} value={tpl.id}>{tpl.title}</option>
@@ -147,6 +257,9 @@ export default function ChatPageClient() {
             </label>
           ))}
         </div>
+        <h3 style={{ marginTop: 10 }}>Upload References</h3>
+        <input type="file" accept="image/jpeg,image/png,.jpg,.jpeg,.png" multiple onChange={(e) => void uploadReferenceFiles(e.target.files)} />
+        {tempUploadNames.length ? <small>{tempUploadNames.length} staged: {tempUploadNames.join(", ")}</small> : null}
       </section>
       <section className="card">
         <h2>Sessions</h2>
@@ -160,11 +273,15 @@ export default function ChatPageClient() {
         </div>
       </section>
       <section className="card" style={{ gridColumn: "1 / span 2" }}>
+        {activeTab === "chat" ? (
+          <>
         <h2>Chat</h2>
         <textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={4} placeholder="Describe the image you want to generate" />
         <div style={{ marginTop: 8 }}>
-          <button onClick={submitGenerate}>Generate</button>
+          <button onClick={submitGenerate} disabled={isGenerating}>{isGenerating ? "Generating..." : "Generate"}</button>
         </div>
+        {generationStatus ? <p style={{ marginTop: 8 }}>{generationStatus}</p> : null}
+        {generationError ? <p style={{ marginTop: 8, color: "#9b1c1c" }}>{generationError}</p> : null}
         <div style={{ marginTop: 12 }}>
           {messages.map((m) => {
             const meta = m.generation_metadata_json ? JSON.parse(m.generation_metadata_json) : null;
@@ -173,11 +290,32 @@ export default function ChatPageClient() {
                 <strong>{m.role}</strong>
                 <p>{m.content}</p>
                 {meta?.image?.signedUrl ? <img src={meta.image.signedUrl} alt="generated" style={{ width: "100%", borderRadius: 8 }} /> : null}
+                {meta?.image?.signedUrl ? <p><a href={meta.image.signedUrl} download>Download</a> <small>Expires {new Date(meta.image.expiresAt).toLocaleString()}</small></p> : null}
                 {meta?.usage ? <small>{meta.usage.model} - ${meta.usage.estimatedCost} - {meta.usage.durationMs}ms</small> : null}
               </article>
             );
           })}
         </div>
+          </>
+        ) : (
+          <>
+            <h2>Prompt Debug</h2>
+            <p>Complete prompt sent to the LLM for the latest generation request in this session.</p>
+            <textarea
+              readOnly
+              value={assembledPrompt || "No assembled prompt found yet for this session."}
+              rows={20}
+              style={{ width: "100%", whiteSpace: "pre-wrap" }}
+            />
+            <h3>JSON Context</h3>
+            <textarea
+              readOnly
+              value={generationContextText || "No JSON context found yet for this session."}
+              rows={14}
+              style={{ width: "100%", whiteSpace: "pre-wrap" }}
+            />
+          </>
+        )}
       </section>
     </div>
   );
