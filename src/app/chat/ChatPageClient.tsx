@@ -6,6 +6,10 @@ import type { ChatBootstrapResponse } from "@/types";
 type Session = { id: string; title: string };
 type Message = { id: string; role: string; content: string; generation_metadata_json?: string; attachments_json?: string };
 type TempUploadResponseItem = { url: string; name?: string };
+const WORKOUT_WARRIOR_TEMPLATE_TITLES = new Set([
+  "ig hiit workout warrior",
+  "ig hiit workout warrior collective"
+]);
 
 export default function ChatPageClient() {
   const [activeTab, setActiveTab] = useState<"chat" | "prompt">("chat");
@@ -64,7 +68,7 @@ export default function ChatPageClient() {
   async function submitGenerate() {
     if (!message.trim() || isGenerating) return;
     const selectedTemplate = (bootstrap?.templates ?? []).find((tpl) => tpl.id === selectedTemplateId);
-    const isWorkoutWarriorTemplate = selectedTemplate?.title?.trim().toLowerCase() === "ig hiit workout warrior";
+    const isWorkoutWarriorTemplate = WORKOUT_WARRIOR_TEMPLATE_TITLES.has(selectedTemplate?.title?.trim().toLowerCase() ?? "");
     const selectedClass = (bootstrap?.classes ?? []).find((klass) => klass.id === selectedClassId);
     if (!selectedClass) {
       setGenerationError("Select a HIIT class before generating an image.");
@@ -173,7 +177,7 @@ export default function ChatPageClient() {
     setSelectedTemplateId(templateId);
     const selected = (bootstrap?.templates ?? []).find((tpl) => tpl.id === templateId);
     setMessage(selected?.promptText ?? "");
-    if (selected?.title?.trim().toLowerCase() !== "ig hiit workout warrior") {
+    if (!WORKOUT_WARRIOR_TEMPLATE_TITLES.has(selected?.title?.trim().toLowerCase() ?? "")) {
       setAttendeeName("");
       setAttendeeImageRef("");
       setAttendeeImageName("");
@@ -183,7 +187,7 @@ export default function ChatPageClient() {
   async function submitDownloadPrompt() {
     if (!message.trim() || isGenerating || isDownloadingPrompt) return;
     const selectedTemplate = (bootstrap?.templates ?? []).find((tpl) => tpl.id === selectedTemplateId);
-    const isWorkoutWarriorTemplate = selectedTemplate?.title?.trim().toLowerCase() === "ig hiit workout warrior";
+    const isWorkoutWarriorTemplate = WORKOUT_WARRIOR_TEMPLATE_TITLES.has(selectedTemplate?.title?.trim().toLowerCase() ?? "");
     const selectedClass = (bootstrap?.classes ?? []).find((klass) => klass.id === selectedClassId);
     if (!selectedClass) {
       setGenerationError("Select a HIIT class before generating an image.");
@@ -360,7 +364,7 @@ export default function ChatPageClient() {
     ? JSON.stringify(promptEnvelope.generationContextJson, null, 2)
     : "";
   const selectedTemplate = (bootstrap?.templates ?? []).find((tpl) => tpl.id === selectedTemplateId);
-  const isWorkoutWarriorTemplate = selectedTemplate?.title?.trim().toLowerCase() === "ig hiit workout warrior";
+  const isWorkoutWarriorTemplate = WORKOUT_WARRIOR_TEMPLATE_TITLES.has(selectedTemplate?.title?.trim().toLowerCase() ?? "");
 
   return (
     <div className="grid grid-2">

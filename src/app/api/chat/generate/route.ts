@@ -40,6 +40,10 @@ type GenerationContextJson = {
 };
 
 const UPLOAD_ALLOWED_CONTENT_TYPES = new Set(["image/jpeg", "image/png"]);
+const WORKOUT_WARRIOR_TEMPLATE_TITLES = new Set([
+  "ig hiit workout warrior",
+  "ig hiit workout warrior collective"
+]);
 
 export async function POST(req: Request) {
   let ownerSub = "";
@@ -99,7 +103,7 @@ export async function POST(req: Request) {
       }
     }
 
-    const isWorkoutWarriorTemplate = templateTitle.trim().toLowerCase() === "ig hiit workout warrior";
+    const isWorkoutWarriorTemplate = WORKOUT_WARRIOR_TEMPLATE_TITLES.has(templateTitle.trim().toLowerCase());
     if (isWorkoutWarriorTemplate) {
       if (!body.attendeeName) {
         return validationError("attendee_name_required", "Provide the attendee name for the IG HIIT Workout Warrior template.");
