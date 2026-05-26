@@ -2,8 +2,10 @@
 ## Be aware of the following
 - this is running in a Window workstation
 - the current version of PowerShell in this workstation doesn't support the && syntax
-- this app will be deployed to Vercel's Hobby plan; one of the core constraints of this plan is that up to 12 serverless functions can be created
-- github repo is https://github.com/rdaudt/social-image-studio
+- this app will be deployed to Vercel's Hobby plan; limits for "Functions Created per Deployment" are framework-dependent (not a universal fixed number)
+- for Next.js deployments, Vercel can bundle dynamic code into fewer functions; do not assume a strict 1 route file = 1 function mapping
+- the legacy "up to 12 serverless functions" rule applies to direct-mapping frameworks/runtimes, not necessarily to Next.js
+- github repo is https://github.com/rdaudt/social-media-creator
 - the Vercel project is connected to the GitHub repo, so every new push triggers an automatic redeploy in Vercel
 
 ## Follow these guidelines
