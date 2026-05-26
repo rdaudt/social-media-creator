@@ -83,6 +83,11 @@ export default function ChatPageClient() {
     void loadClassMedia(selectedClassId);
   }, [selectedClassId]);
 
+  useEffect(() => {
+    if (activeTab !== "classMedia" || !selectedClassId) return;
+    void loadClassMedia(selectedClassId);
+  }, [activeTab, selectedClassId]);
+
   async function createSession(title = "Single run"): Promise<string | null> {
     const res = await fetch("/api/chat/sessions", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ title }) });
     const data = await res.json();
@@ -670,7 +675,16 @@ export default function ChatPageClient() {
             </>
           ) : (
             <>
-              <h2>Class Media</h2>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                <h2 style={{ margin: 0 }}>Class Media</h2>
+                <button
+                  type="button"
+                  onClick={() => selectedClassId ? void loadClassMedia(selectedClassId) : undefined}
+                  disabled={!selectedClassId || isLoadingClassMedia}
+                >
+                  {isLoadingClassMedia ? "Refreshing..." : "Refresh"}
+                </button>
+              </div>
               {!selectedClassId ? <p>Select a HIIT class to manage attached media.</p> : null}
               {isLoadingClassMedia ? <p>Loading class media...</p> : null}
               {!isLoadingClassMedia && selectedClassId && classMedia.length === 0 ? <p>No media attached yet for this class.</p> : null}

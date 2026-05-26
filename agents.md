@@ -13,6 +13,9 @@
   - Turso CLI is installed in WSL Ubuntu and authenticated there; run Turso commands through WSL, for example:
     - `wsl -d Ubuntu -e bash -ic "turso <command>"`
   - Turso is not available in Windows PowerShell in this workstation context; do not assume `turso` works natively on Windows.
+  - If `npm run build` fails with `PageNotFoundError: Cannot find module for page: /_document`, clear Next build artifacts and retry:
+    - `if (Test-Path .next) { Remove-Item -Recurse -Force .next }`
+    - `npm run build`
   - Vercel CLI should be invoked as `vercel.cmd` in Windows PowerShell, not `vercel`, because `vercel.ps1` is blocked by execution policy in this environment.
   - Preferred Windows invocation:
     - `vercel.cmd <command>`
