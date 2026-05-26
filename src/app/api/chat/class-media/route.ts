@@ -19,6 +19,13 @@ function isAllowedBlobHost(hostname: string): boolean {
   return hostname.endsWith(".blob.vercel-storage.com");
 }
 
+type AccessibleClass = {
+  id: string;
+  coachGoogleSub: string | null;
+  tenantId: string | null;
+  tenantOwnerGoogleSub: string | null;
+};
+
 async function getTenantIdForUserEmail(userEmail: string): Promise<string | null> {
   const tenant = await db.execute({
     sql: `SELECT id FROM coach_tenants WHERE lower(owner_email) = ? LIMIT 1`,
@@ -27,17 +34,25 @@ async function getTenantIdForUserEmail(userEmail: string): Promise<string | null
   return tenant.rows[0]?.id == null ? null : String(tenant.rows[0].id);
 }
 
-async function assertAccessibleClass(userSub: string, userEmail: string, classId: string): Promise<boolean> {
+async function getAccessibleClass(userSub: string, userEmail: string, classId: string): Promise<AccessibleClass | null> {
   const tenantId = await getTenantIdForUserEmail(userEmail);
-  const owned = await db.execute({
-    sql: `SELECT id
-          FROM coach_hiit_classes
-          WHERE id = ?
-            AND (coach_google_sub = ? OR (? IS NOT NULL AND tenant_id = ?))
+  const res = await db.execute({
+    sql: `SELECT c.id, c.coach_google_sub, c.tenant_id, t.owner_google_sub AS tenant_owner_google_sub
+          FROM coach_hiit_classes c
+          LEFT JOIN coach_tenants t ON t.id = c.tenant_id
+          WHERE c.id = ?
+            AND (c.coach_google_sub = ? OR (? IS NOT NULL AND c.tenant_id = ?))
           LIMIT 1`,
     args: [classId, userSub, tenantId, tenantId]
   });
-  return Boolean(owned.rows[0]);
+  const row = res.rows[0];
+  if (!row) return null;
+  return {
+    id: String(row.id),
+    coachGoogleSub: row.coach_google_sub == null ? null : String(row.coach_google_sub),
+    tenantId: row.tenant_id == null ? null : String(row.tenant_id),
+    tenantOwnerGoogleSub: row.tenant_owner_google_sub == null ? null : String(row.tenant_owner_google_sub)
+  };
 }
 
 function resolveBlobSourceUrl(rawUrl: string): string {
@@ -66,15 +81,15 @@ export async function GET(req: Request) {
     const classId = new URL(req.url).searchParams.get("classId") ?? "";
     if (!classId) return NextResponse.json({ error: "class_id_required" }, { status: 400 });
 
-    const classOwned = await assertAccessibleClass(user.sub, user.email, classId);
-    if (!classOwned) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+    const accessibleClass = await getAccessibleClass(user.sub, user.email, classId);
+    if (!accessibleClass) return NextResponse.json({ error: "forbidden" }, { status: 403 });
 
     const res = await db.execute({
       sql: `SELECT id, class_id, blob_url, source_message_id, is_sharable, created_at
             FROM coach_hiit_class_media
-            WHERE coach_google_sub = ? AND class_id = ?
+            WHERE class_id = ?
             ORDER BY created_at DESC`,
-      args: [user.sub, classId]
+      args: [classId]
     });
 
     return NextResponse.json({
@@ -105,8 +120,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "invalid_payload" }, { status: 400 });
     }
 
-    const classOwned = await assertAccessibleClass(user.sub, user.email, classId);
-    if (!classOwned) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+    const accessibleClass = await getAccessibleClass(user.sub, user.email, classId);
+    if (!accessibleClass) return NextResponse.json({ error: "forbidden" }, { status: 403 });
 
     const resolvedBlobSource = resolveBlobSourceUrl(generatedImageUrl);
     const sourceUrl = new URL(resolvedBlobSource);
@@ -124,7 +139,8 @@ export async function POST(req: Request) {
     const digest = createHash("sha256").update(resolvedBlobSource).digest("hex").slice(0, 24);
     const ext = contentType === "image/jpeg" ? "jpg" : contentType === "image/webp" ? "webp" : "png";
     const mediaId = `class_media_${digest}`;
-    const permanentPath = `class-media/${sanitizeSegment(user.sub)}/${sanitizeSegment(classId)}/${mediaId}.${ext}`;
+    const mediaOwnerSub = accessibleClass.coachGoogleSub ?? accessibleClass.tenantOwnerGoogleSub ?? user.sub;
+    const permanentPath = `class-media/${sanitizeSegment(mediaOwnerSub)}/${sanitizeSegment(classId)}/${mediaId}.${ext}`;
 
     const blob = await putPermanentBlob(permanentPath, Buffer.from(await fetchRes.arrayBuffer()), contentType);
     const existing = await db.execute({
@@ -155,7 +171,7 @@ export async function POST(req: Request) {
     await db.execute({
       sql: `INSERT INTO coach_hiit_class_media (id, coach_google_sub, class_id, blob_url, blob_pathname, source_message_id, created_at)
             VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      args: [id, user.sub, classId, blob.url, blob.pathname, sourceMessageId, createdAt]
+      args: [id, mediaOwnerSub, classId, blob.url, blob.pathname, sourceMessageId, createdAt]
     });
 
     return NextResponse.json({ media: { id, classId, blobUrl: blob.url, isSharable: false, createdAt, sourceMessageId } }, { status: 201 });

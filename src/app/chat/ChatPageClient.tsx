@@ -61,6 +61,7 @@ export default function ChatPageClient() {
       .then((d: ChatBootstrapResponse) => {
         setBootstrap(d);
         setSelectedLocationId(d.defaults?.selectedLocationId ?? "");
+        setSelectedClassId(d.defaults?.selectedClassId ?? d.classes?.[0]?.id ?? "");
         if (d.templates?.[0]) {
           setSelectedTemplateId(d.templates[0].id);
           setMessage(d.templates[0].promptText);

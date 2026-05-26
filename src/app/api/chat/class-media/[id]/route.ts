@@ -12,6 +12,14 @@ async function getTenantIdForUserEmail(userEmail: string): Promise<string | null
   return tenant.rows[0]?.id == null ? null : String(tenant.rows[0].id);
 }
 
+function accessibleClassExistsSql(): string {
+  return `EXISTS (
+    SELECT 1 FROM coach_hiit_classes c
+    WHERE c.id = m.class_id
+      AND (c.coach_google_sub = ? OR (? IS NOT NULL AND c.tenant_id = ?))
+  )`;
+}
+
 export async function DELETE(_: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     await bootstrapSchema();
@@ -23,22 +31,17 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
       sql: `SELECT m.id, m.class_id, m.blob_url
             FROM coach_hiit_class_media m
             WHERE m.id = ?
-              AND m.coach_google_sub = ?
-              AND EXISTS (
-                SELECT 1 FROM coach_hiit_classes c
-                WHERE c.id = m.class_id
-                  AND (c.coach_google_sub = ? OR (? IS NOT NULL AND c.tenant_id = ?))
-              )
+              AND ${accessibleClassExistsSql()}
             LIMIT 1`,
-      args: [id, user.sub, user.sub, tenantId, tenantId]
+      args: [id, user.sub, tenantId, tenantId]
     });
 
     const row = rowRes.rows[0];
     if (!row) return NextResponse.json({ error: "not_found" }, { status: 404 });
 
     await db.execute({
-      sql: `DELETE FROM coach_hiit_class_media WHERE id = ? AND coach_google_sub = ?`,
-      args: [id, user.sub]
+      sql: `DELETE FROM coach_hiit_class_media WHERE id = ?`,
+      args: [id]
     });
 
     try {
@@ -68,14 +71,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       sql: `SELECT m.id, m.class_id, m.blob_url, m.source_message_id, m.created_at
             FROM coach_hiit_class_media m
             WHERE m.id = ?
-              AND m.coach_google_sub = ?
-              AND EXISTS (
-                SELECT 1 FROM coach_hiit_classes c
-                WHERE c.id = m.class_id
-                  AND (c.coach_google_sub = ? OR (? IS NOT NULL AND c.tenant_id = ?))
-              )
+              AND ${accessibleClassExistsSql()}
             LIMIT 1`,
-      args: [id, user.sub, user.sub, tenantId, tenantId]
+      args: [id, user.sub, tenantId, tenantId]
     });
     const row = rowRes.rows[0];
     if (!row) return NextResponse.json({ error: "not_found" }, { status: 404 });
@@ -83,8 +81,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     await db.execute({
       sql: `UPDATE coach_hiit_class_media
             SET is_sharable = ?
-            WHERE id = ? AND coach_google_sub = ?`,
-      args: [body.isSharable ? 1 : 0, id, user.sub]
+            WHERE id = ?`,
+      args: [body.isSharable ? 1 : 0, id]
     });
 
     return NextResponse.json({
