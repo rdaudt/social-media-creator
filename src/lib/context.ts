@@ -27,6 +27,7 @@ function pickAssetUrlByTitle(assets: Array<{ title: string; blob_url: string }>,
 
 type HiitSnapshot = {
   stationCount?: number;
+  station_workout_types_json?: unknown;
   stationWorkoutTypes?: string[];
   roundsPerStation?: number;
   workMinutes?: number;
@@ -64,6 +65,17 @@ function parseHiitSnapshot(raw: string | null): HiitSnapshot | null {
   }
 }
 
+function parseWorkoutTypesFromJson(raw: unknown): string[] {
+  if (Array.isArray(raw)) return raw.map((entry) => String(entry ?? ""));
+  if (typeof raw !== "string" || raw.trim().length === 0) return [];
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    return Array.isArray(parsed) ? parsed.map((entry) => String(entry ?? "")) : [];
+  } catch {
+    return [];
+  }
+}
+
 function buildHiitBlock(c?: CoachHiitClass): string {
   if (!c) return "No recent class found.";
   const snapshot = parseHiitSnapshot(c.timerSnapshotJson);
@@ -83,6 +95,8 @@ function buildHiitBlock(c?: CoachHiitClass): string {
   const totalWorkSec = stationCount * intervalsPerStation * workSec;
   const classCoreSec = stationCount * stationRunSec + Math.max(0, stationCount - 1) * transitionSec;
   const totalRunSec = warmupSec + classCoreSec + cooldownSec;
+  const stationWorkoutTypes = parseWorkoutTypesFromJson(snapshot.station_workout_types_json);
+  const workoutTypes = stationWorkoutTypes.length > 0 ? stationWorkoutTypes : (snapshot.stationWorkoutTypes ?? []);
 
   return [
     `Class name: ${c.timerNameAtRun ?? snapshot.name ?? "N/A"}`,
@@ -97,7 +111,7 @@ function buildHiitBlock(c?: CoachHiitClass): string {
     `Work interval: ${asMmSs(workSec)} (${workSec}s)`,
     `Rest interval: ${asMmSs(restSec)} (${restSec}s)`,
     `Station transition: ${asMmSs(transitionSec)} (${transitionSec}s)`,
-    `Workout type in each station: ${(snapshot.stationWorkoutTypes ?? []).join(", ") || "N/A"}`,
+    `Workout type in each station: ${workoutTypes.join(", ") || "N/A"}`,
     `Total work time only: ${asMmSs(totalWorkSec)} (${totalWorkSec}s)`
   ].join("; ");
 }

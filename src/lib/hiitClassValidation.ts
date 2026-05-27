@@ -2,6 +2,7 @@ import type { CoachHiitClass } from "@/types";
 
 type HiitSnapshot = {
   stationCount?: unknown;
+  station_workout_types_json?: unknown;
   stationWorkoutTypes?: unknown;
 };
 
@@ -36,6 +37,17 @@ function toStationCount(raw: unknown): number | null {
   return Math.trunc(num);
 }
 
+function parseWorkoutTypesFromJson(raw: unknown): unknown[] {
+  if (Array.isArray(raw)) return raw;
+  if (typeof raw !== "string" || raw.trim().length === 0) return [];
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 export function validateHiitClassForMediaGeneration(klass: CoachHiitClass): HiitClassValidationResult {
   if (!klass.startTime || !klass.endTime || !klass.locationId) {
     return {
@@ -46,10 +58,12 @@ export function validateHiitClassForMediaGeneration(klass: CoachHiitClass): Hiit
   }
 
   const snapshot = parseSnapshot(klass.timerSnapshotJson);
-  const stationWorkoutTypes = Array.isArray(snapshot?.stationWorkoutTypes)
+  const stationWorkoutTypes = parseWorkoutTypesFromJson(snapshot?.station_workout_types_json);
+  const legacyStationWorkoutTypes = Array.isArray(snapshot?.stationWorkoutTypes)
     ? snapshot.stationWorkoutTypes
     : [];
-  if (stationWorkoutTypes.length === 0) {
+  const workoutTypes = stationWorkoutTypes.length > 0 ? stationWorkoutTypes : legacyStationWorkoutTypes;
+  if (workoutTypes.length === 0) {
     return {
       ok: false,
       code: "class_station_workout_types_required",
@@ -58,7 +72,7 @@ export function validateHiitClassForMediaGeneration(klass: CoachHiitClass): Hiit
   }
 
   const stationCount = toStationCount(snapshot?.stationCount);
-  if (stationCount == null || stationWorkoutTypes.length !== stationCount) {
+  if (stationCount == null || workoutTypes.length !== stationCount) {
     return {
       ok: false,
       code: "class_station_workout_types_count_mismatch",
@@ -66,7 +80,7 @@ export function validateHiitClassForMediaGeneration(klass: CoachHiitClass): Hiit
     };
   }
 
-  const hasInvalidEntry = stationWorkoutTypes.some((entry) => String(entry ?? "").trim().length === 0);
+  const hasInvalidEntry = workoutTypes.some((entry) => String(entry ?? "").trim().length === 0);
   if (hasInvalidEntry) {
     return {
       ok: false,
