@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS coach_hiit_classes (
   start_time TEXT,
   end_time TEXT,
   location_id TEXT,
+  station_workout_types_json TEXT,
   location_label_at_run TEXT
 );
 

@@ -95,8 +95,11 @@ function buildHiitBlock(c?: CoachHiitClass): string {
   const totalWorkSec = stationCount * intervalsPerStation * workSec;
   const classCoreSec = stationCount * stationRunSec + Math.max(0, stationCount - 1) * transitionSec;
   const totalRunSec = warmupSec + classCoreSec + cooldownSec;
-  const stationWorkoutTypes = parseWorkoutTypesFromJson(snapshot.station_workout_types_json);
-  const workoutTypes = stationWorkoutTypes.length > 0 ? stationWorkoutTypes : (snapshot.stationWorkoutTypes ?? []);
+  const stationWorkoutTypes = parseWorkoutTypesFromJson(c.stationWorkoutTypesJson);
+  const snapshotWorkoutTypes = parseWorkoutTypesFromJson(snapshot.station_workout_types_json);
+  const workoutTypes = stationWorkoutTypes.length > 0
+    ? stationWorkoutTypes
+    : (snapshotWorkoutTypes.length > 0 ? snapshotWorkoutTypes : (snapshot.stationWorkoutTypes ?? []));
 
   return [
     `Class name: ${c.timerNameAtRun ?? snapshot.name ?? "N/A"}`,
@@ -152,7 +155,7 @@ export async function getCoachBootstrap(ownerEmail: string, ownerSub: string): P
   }));
 
   const classesRes = await db.execute({
-    sql: `SELECT id, timer_name_at_run, category, class_date, start_time, end_time, location_id, location_label_at_run, timer_snapshot_json, ran_at
+    sql: `SELECT id, timer_name_at_run, category, class_date, start_time, end_time, location_id, location_label_at_run, station_workout_types_json, timer_snapshot_json, ran_at
           FROM coach_hiit_classes
           WHERE coach_google_sub = ?
              OR tenant_id = ?
@@ -168,6 +171,7 @@ export async function getCoachBootstrap(ownerEmail: string, ownerSub: string): P
     endTime: asStringOrNull(r.end_time),
     locationId: asStringOrNull(r.location_id),
     locationLabelAtRun: asStringOrNull(r.location_label_at_run),
+    stationWorkoutTypesJson: asStringOrNull(r.station_workout_types_json),
     timerSnapshotJson: asStringOrNull(r.timer_snapshot_json),
     ranAt: asStringOrNull(r.ran_at)
   }));

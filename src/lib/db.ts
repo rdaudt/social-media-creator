@@ -163,6 +163,9 @@ async function ensureCoachHiitClassColumns(): Promise<void> {
   if (!names.has("location_id")) {
     await db.execute({ sql: `ALTER TABLE coach_hiit_classes ADD COLUMN location_id TEXT`, args: [] });
   }
+  if (!names.has("station_workout_types_json")) {
+    await db.execute({ sql: `ALTER TABLE coach_hiit_classes ADD COLUMN station_workout_types_json TEXT`, args: [] });
+  }
 }
 
 async function seedModelPricingRates(): Promise<void> {

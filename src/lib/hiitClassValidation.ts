@@ -58,11 +58,14 @@ export function validateHiitClassForMediaGeneration(klass: CoachHiitClass): Hiit
   }
 
   const snapshot = parseSnapshot(klass.timerSnapshotJson);
-  const stationWorkoutTypes = parseWorkoutTypesFromJson(snapshot?.station_workout_types_json);
+  const stationWorkoutTypes = parseWorkoutTypesFromJson(klass.stationWorkoutTypesJson);
+  const snapshotStationWorkoutTypes = parseWorkoutTypesFromJson(snapshot?.station_workout_types_json);
   const legacyStationWorkoutTypes = Array.isArray(snapshot?.stationWorkoutTypes)
     ? snapshot.stationWorkoutTypes
     : [];
-  const workoutTypes = stationWorkoutTypes.length > 0 ? stationWorkoutTypes : legacyStationWorkoutTypes;
+  const workoutTypes = stationWorkoutTypes.length > 0
+    ? stationWorkoutTypes
+    : (snapshotStationWorkoutTypes.length > 0 ? snapshotStationWorkoutTypes : legacyStationWorkoutTypes);
   if (workoutTypes.length === 0) {
     return {
       ok: false,
