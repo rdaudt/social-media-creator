@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { validateHiitClassForMediaGeneration } from "@/lib/hiitClassValidation";
 import type { ChatBootstrapResponse, CoachHiitClassMedia } from "@/types";
 
 type Message = { id: string; role: string; content: string; generation_metadata_json?: string; attachments_json?: string };
@@ -116,8 +117,9 @@ export default function ChatPageClient() {
       setGenerationError("Select a HIIT class before generating an image.");
       return;
     }
-    if (!selectedClass.classDate || !(selectedClass.startTime ?? selectedClass.ranAt)) {
-      setGenerationError("The selected HIIT class needs a date and start time before image generation.");
+    const hiitValidation = validateHiitClassForMediaGeneration(selectedClass);
+    if (!hiitValidation.ok) {
+      setGenerationError(hiitValidation.message);
       return;
     }
     if (isWorkoutWarriorTemplate && !attendeeName.trim()) {
@@ -243,8 +245,9 @@ export default function ChatPageClient() {
       setGenerationError("Select a HIIT class before generating an image.");
       return;
     }
-    if (!selectedClass.classDate || !(selectedClass.startTime ?? selectedClass.ranAt)) {
-      setGenerationError("The selected HIIT class needs a date and start time before image generation.");
+    const hiitValidation = validateHiitClassForMediaGeneration(selectedClass);
+    if (!hiitValidation.ok) {
+      setGenerationError(hiitValidation.message);
       return;
     }
     if (isWorkoutWarriorTemplate && !attendeeName.trim()) {

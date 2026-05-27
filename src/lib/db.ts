@@ -106,6 +106,7 @@ export async function bootstrapSchema(): Promise<void> {
   await ensurePromptTemplateColumns();
   await ensureInteractionUsageColumns();
   await ensureClassMediaColumns();
+  await ensureCoachHiitClassColumns();
   await seedModelPricingRates();
 }
 
@@ -141,6 +142,26 @@ async function ensureClassMediaColumns(): Promise<void> {
   const names = new Set(cols.rows.map((row) => String(row.name)));
   if (!names.has("is_sharable")) {
     await db.execute({ sql: `ALTER TABLE coach_hiit_class_media ADD COLUMN is_sharable INTEGER NOT NULL DEFAULT 0`, args: [] });
+  }
+}
+
+async function ensureCoachHiitClassColumns(): Promise<void> {
+  const tableExists = await db.execute({
+    sql: `SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'coach_hiit_classes' LIMIT 1`,
+    args: []
+  });
+  if (!tableExists.rows[0]) return;
+
+  const cols = await db.execute({ sql: `PRAGMA table_info(coach_hiit_classes)`, args: [] });
+  const names = new Set(cols.rows.map((row) => String(row.name)));
+  if (!names.has("start_time")) {
+    await db.execute({ sql: `ALTER TABLE coach_hiit_classes ADD COLUMN start_time TEXT`, args: [] });
+  }
+  if (!names.has("end_time")) {
+    await db.execute({ sql: `ALTER TABLE coach_hiit_classes ADD COLUMN end_time TEXT`, args: [] });
+  }
+  if (!names.has("location_id")) {
+    await db.execute({ sql: `ALTER TABLE coach_hiit_classes ADD COLUMN location_id TEXT`, args: [] });
   }
 }
 

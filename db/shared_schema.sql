@@ -29,6 +29,9 @@ CREATE TABLE IF NOT EXISTS coach_hiit_classes (
   category TEXT,
   ran_at TEXT,
   class_date TEXT,
+  start_time TEXT,
+  end_time TEXT,
+  location_id TEXT,
   location_label_at_run TEXT
 );
 

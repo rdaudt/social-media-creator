@@ -138,7 +138,7 @@ export async function getCoachBootstrap(ownerEmail: string, ownerSub: string): P
   }));
 
   const classesRes = await db.execute({
-    sql: `SELECT id, timer_name_at_run, category, class_date, location_label_at_run, timer_snapshot_json, ran_at
+    sql: `SELECT id, timer_name_at_run, category, class_date, start_time, end_time, location_id, location_label_at_run, timer_snapshot_json, ran_at
           FROM coach_hiit_classes
           WHERE coach_google_sub = ?
              OR tenant_id = ?
@@ -150,7 +150,9 @@ export async function getCoachBootstrap(ownerEmail: string, ownerSub: string): P
     timerNameAtRun: asStringOrNull(r.timer_name_at_run),
     category: asStringOrNull(r.category),
     classDate: asStringOrNull(r.class_date),
-    startTime: asStringOrNull(r.ran_at),
+    startTime: asStringOrNull(r.start_time),
+    endTime: asStringOrNull(r.end_time),
+    locationId: asStringOrNull(r.location_id),
     locationLabelAtRun: asStringOrNull(r.location_label_at_run),
     timerSnapshotJson: asStringOrNull(r.timer_snapshot_json),
     ranAt: asStringOrNull(r.ran_at)
