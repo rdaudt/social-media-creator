@@ -17,7 +17,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body>
         <header className="topbar">
           <nav>
-            <Link href="/chat">Chat</Link>
+            <Link href="/chat">Media Creation</Link>
             <Link href="/admin/prompt-templates">Admin Templates</Link>
             {session?.user ? (
               <form action={signOutAction} style={{ display: "inline" }}>

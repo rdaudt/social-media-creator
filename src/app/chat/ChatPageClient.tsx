@@ -509,11 +509,11 @@ export default function ChatPageClient() {
   const runCostConfidence = String(latestMeta?.usage?.costConfidence ?? "partial");
 
   return (
-    <div className="grid grid-2" style={{ position: "relative" }}>
-      <section className="card" style={{ gridColumn: "1 / span 2", display: "flex", gap: 8 }}>
-        <button onClick={() => setActiveTab("chat")} disabled={activeTab === "chat" || isFormLocked}>Image description</button>
+    <div className="grid" style={{ position: "relative" }}>
+      <section className="card" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <button onClick={() => setActiveTab("chat")} disabled={activeTab === "chat" || isFormLocked}>Media Creation Studio</button>
         <button onClick={() => setActiveTab("prompt")} disabled={activeTab === "prompt" || isFormLocked}>Prompt Debug</button>
-        <button onClick={() => setActiveTab("classMedia")} disabled={activeTab === "classMedia" || isFormLocked}>Class Media</button>
+        <button onClick={() => setActiveTab("classMedia")} disabled={activeTab === "classMedia" || isFormLocked}>Media Management</button>
       </section>
       <section className="card">
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -526,16 +526,6 @@ export default function ChatPageClient() {
           ) : null}
           <h2 style={{ margin: 0 }}>{bootstrap?.coach?.coachName ?? "Coach"}</h2>
         </div>
-        <p><strong>Tagline:</strong> {bootstrap?.coach?.headerTagline ?? "N/A"}</p>
-        <p><strong>Bio:</strong> {bootstrap?.coach?.bio ?? "N/A"}</p>
-        <p><strong>Business:</strong> {bootstrap?.coach?.businessName ?? "N/A"}</p>
-        {toImageSrc(bootstrap?.coach?.businessLogoUrl) ? (
-          <img
-            src={toImageSrc(bootstrap?.coach?.businessLogoUrl) ?? ""}
-            alt={`${bootstrap?.coach?.businessName ?? "Business"} logo`}
-            style={{ width: 72, height: 72, objectFit: "contain", borderRadius: 8 }}
-          />
-        ) : null}
         <h3 style={{ marginTop: 10 }}>HIIT Classes</h3>
         <select value={selectedClassId} onChange={(e) => onClassChange(e.target.value)} disabled={isFormLocked}>
           <option value="">Select a class</option>
@@ -589,11 +579,10 @@ export default function ChatPageClient() {
           </>
         ) : null}
       </section>
-      <section className="card">
-        <div style={{ marginTop: 16 }}>
-          {activeTab === "chat" ? (
-            <>
-              <h2>Image description</h2>
+      {activeTab === "chat" ? (
+        <>
+          <section className="card">
+            <h2 style={{ marginTop: 0 }}>Prompt</h2>
               <textarea
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
@@ -623,43 +612,47 @@ export default function ChatPageClient() {
               </div>
               {generationStatus ? <p style={{ marginTop: 8 }}>{generationStatus}</p> : null}
               {generationError ? <p style={{ marginTop: 8, color: "#9b1c1c" }}>{generationError}</p> : null}
-              <div style={{ marginTop: 12 }}>
-                {messages.slice(-1).map((m) => {
-                  const meta = m.generation_metadata_json ? JSON.parse(m.generation_metadata_json) : null;
-                  return (
-                    <article key={m.id} className="card">
-                      {meta?.image?.signedUrl ? <img src={meta.image.signedUrl} alt="generated" style={{ width: "100%", borderRadius: 8 }} /> : null}
-                      {meta?.image?.signedUrl ? <p><a href={meta.image.signedUrl} download={meta.image.fileName ?? "Generated Image.png"}>Download</a> <small>Expires {new Date(meta.image.expiresAt).toLocaleString()}</small></p> : null}
-                      {meta?.image?.signedUrl ? (
-                        <div style={{ marginBottom: 6 }}>
-                          <button
-                            onClick={() => void attachGeneratedImage(m.id, meta.image.signedUrl)}
-                            disabled={!selectedClassId || attachStateByMessageId[m.id] === "loading"}
-                          >
-                            {attachStateByMessageId[m.id] === "loading" ? "Attaching..." : "Attach to class"}
-                          </button>
-                          {attachStateByMessageId[m.id] === "success" ? <small style={{ marginLeft: 8 }}>Attached</small> : null}
-                          {attachStateByMessageId[m.id] === "error" ? <small style={{ marginLeft: 8, color: "#9b1c1c" }}>Failed</small> : null}
-                        </div>
-                      ) : null}
-                      {meta?.usage ? (
-                        <small>
-                          {(meta.usage.imageModel ?? meta.usage.model)}
-                          {meta.usage.orchestratorModel && meta.usage.orchestratorModel !== (meta.usage.imageModel ?? meta.usage.model)
-                            ? ` (via ${meta.usage.orchestratorModel})`
-                            : ""}
-                          {" "} - ${meta.usage.estimatedCost} - {meta.usage.durationMs}ms
-                          {meta.usage.actualCostUsd != null ? ` - actual $${Number(meta.usage.actualCostUsd).toFixed(6)} (${String(meta.usage.costConfidence ?? "partial")})` : ""}
-                        </small>
-                      ) : null}
-                    </article>
-                  );
-                })}
-              </div>
-            </>
-          ) : activeTab === "prompt" ? (
-            <>
-              <h2>Prompt Debug</h2>
+          </section>
+          <section className="card">
+            <h2 style={{ marginTop: 0 }}>Created image</h2>
+            <div style={{ marginTop: 12 }}>
+              {messages.slice(-1).map((m) => {
+                const meta = m.generation_metadata_json ? JSON.parse(m.generation_metadata_json) : null;
+                return (
+                  <article key={m.id} className="card">
+                    {meta?.image?.signedUrl ? <img src={meta.image.signedUrl} alt="generated" style={{ width: "100%", borderRadius: 8 }} /> : null}
+                    {meta?.image?.signedUrl ? <p><a href={meta.image.signedUrl} download={meta.image.fileName ?? "Generated Image.png"}>Download</a> <small>Expires {new Date(meta.image.expiresAt).toLocaleString()}</small></p> : null}
+                    {meta?.image?.signedUrl ? (
+                      <div style={{ marginBottom: 6 }}>
+                        <button
+                          onClick={() => void attachGeneratedImage(m.id, meta.image.signedUrl)}
+                          disabled={!selectedClassId || attachStateByMessageId[m.id] === "loading"}
+                        >
+                          {attachStateByMessageId[m.id] === "loading" ? "Attaching..." : "Attach to class"}
+                        </button>
+                        {attachStateByMessageId[m.id] === "success" ? <small style={{ marginLeft: 8 }}>Attached</small> : null}
+                        {attachStateByMessageId[m.id] === "error" ? <small style={{ marginLeft: 8, color: "#9b1c1c" }}>Failed</small> : null}
+                      </div>
+                    ) : null}
+                    {meta?.usage ? (
+                      <small>
+                        {(meta.usage.imageModel ?? meta.usage.model)}
+                        {meta.usage.orchestratorModel && meta.usage.orchestratorModel !== (meta.usage.imageModel ?? meta.usage.model)
+                          ? ` (via ${meta.usage.orchestratorModel})`
+                          : ""}
+                        {" "} - ${meta.usage.estimatedCost} - {meta.usage.durationMs}ms
+                        {meta.usage.actualCostUsd != null ? ` - actual $${Number(meta.usage.actualCostUsd).toFixed(6)} (${String(meta.usage.costConfidence ?? "partial")})` : ""}
+                      </small>
+                    ) : null}
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+        </>
+      ) : activeTab === "prompt" ? (
+        <section className="card">
+          <h2 style={{ marginTop: 0 }}>Prompt Debug</h2>
               <p>Complete prompt sent to the LLM for the latest generation request.</p>
               <textarea
                 readOnly
@@ -674,11 +667,11 @@ export default function ChatPageClient() {
                 rows={14}
                 style={{ width: "100%", whiteSpace: "pre-wrap" }}
               />
-            </>
-          ) : (
-            <>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                <h2 style={{ margin: 0 }}>Class Media</h2>
+        </section>
+      ) : (
+        <section className="card">
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                <h2 style={{ margin: 0 }}>Media Management</h2>
                 <button
                   type="button"
                   onClick={() => selectedClassId ? void loadClassMedia(selectedClassId) : undefined}
@@ -723,10 +716,8 @@ export default function ChatPageClient() {
                   </article>
                 ))}
               </div>
-            </>
-          )}
-        </div>
-      </section>
+        </section>
+      )}
       {selectedClassMediaPreviewUrl ? (
         <div
           role="dialog"
