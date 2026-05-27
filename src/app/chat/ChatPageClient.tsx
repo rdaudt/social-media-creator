@@ -6,6 +6,22 @@ import type { ChatBootstrapResponse, CoachHiitClassMedia } from "@/types";
 
 type Message = { id: string; role: string; content: string; generation_metadata_json?: string; attachments_json?: string };
 type TempUploadResponseItem = { url: string; name?: string };
+type GenerationImageMeta = {
+  image?: {
+    signedUrl?: string;
+    expiresAt?: string;
+    fileName?: string;
+  };
+  usage?: {
+    model?: string;
+    imageModel?: string;
+    orchestratorModel?: string;
+    estimatedCost?: number;
+    actualCostUsd?: number;
+    costConfidence?: string;
+    durationMs?: number;
+  };
+};
 type CostSnapshot = {
   estimate?: { minEstimateUsd: number; maxEstimateUsd: number; confidence: "high" | "low" };
   spend?: { todayUsd: number; monthUsd: number; lifetimeUsd: number };
@@ -515,7 +531,12 @@ export default function ChatPageClient() {
   const elapsedMinutes = String(Math.floor(generationElapsedSeconds / 60)).padStart(2, "0");
   const elapsedSeconds = String(generationElapsedSeconds % 60).padStart(2, "0");
   const latestAssistantMessage = [...messages].reverse().find((m) => m.role === "assistant");
-  const latestMeta = latestAssistantMessage?.generation_metadata_json ? JSON.parse(latestAssistantMessage.generation_metadata_json) : null;
+  const latestMeta = parseGenerationMeta(latestAssistantMessage?.generation_metadata_json);
+  const latestImageMessage = [...messages].reverse().find((m) => {
+    const meta = parseGenerationMeta(m.generation_metadata_json);
+    return m.role === "assistant" && Boolean(meta?.image?.signedUrl);
+  });
+  const latestImageMeta = parseGenerationMeta(latestImageMessage?.generation_metadata_json);
   const runCostUsd = Number(latestMeta?.usage?.actualCostUsd ?? 0);
   const runCostConfidence = String(latestMeta?.usage?.costConfidence ?? "partial");
 
@@ -627,37 +648,34 @@ export default function ChatPageClient() {
           <section className="card">
             <h2 style={{ marginTop: 0 }}>Created image</h2>
             <div style={{ marginTop: 12 }}>
-              {messages.slice(-1).map((m) => {
-                const meta = m.generation_metadata_json ? JSON.parse(m.generation_metadata_json) : null;
-                return (
-                  <article key={m.id} className="card">
-                    {meta?.image?.signedUrl ? <img src={meta.image.signedUrl} alt="generated" style={{ width: "100%", borderRadius: 8 }} /> : null}
-                    {meta?.image?.signedUrl ? <p><a href={meta.image.signedUrl} download={meta.image.fileName ?? "Generated Image.png"}>Download</a> <small>Expires {new Date(meta.image.expiresAt).toLocaleString()}</small></p> : null}
-                    {meta?.image?.signedUrl ? (
-                      <div style={{ marginBottom: 6 }}>
-                        <button
-                          onClick={() => void attachGeneratedImage(m.id, meta.image.signedUrl)}
-                          disabled={!selectedClassId || attachStateByMessageId[m.id] === "loading"}
-                        >
-                          {attachStateByMessageId[m.id] === "loading" ? "Attaching..." : "Attach to class"}
-                        </button>
-                        {attachStateByMessageId[m.id] === "success" ? <small style={{ marginLeft: 8 }}>Attached</small> : null}
-                        {attachStateByMessageId[m.id] === "error" ? <small style={{ marginLeft: 8, color: "#9b1c1c" }}>Failed</small> : null}
-                      </div>
-                    ) : null}
-                    {meta?.usage ? (
-                      <small>
-                        {(meta.usage.imageModel ?? meta.usage.model)}
-                        {meta.usage.orchestratorModel && meta.usage.orchestratorModel !== (meta.usage.imageModel ?? meta.usage.model)
-                          ? ` (via ${meta.usage.orchestratorModel})`
-                          : ""}
-                        {" "} - ${meta.usage.estimatedCost} - {meta.usage.durationMs}ms
-                        {meta.usage.actualCostUsd != null ? ` - actual $${Number(meta.usage.actualCostUsd).toFixed(6)} (${String(meta.usage.costConfidence ?? "partial")})` : ""}
-                      </small>
-                    ) : null}
-                  </article>
-                );
-              })}
+              {!latestImageMessage || !latestImageMeta?.image?.signedUrl ? (
+                <p>No generated image found for this session yet.</p>
+              ) : (
+                <article key={latestImageMessage.id} className="card">
+                  <img src={latestImageMeta.image.signedUrl} alt="generated" style={{ width: "100%", borderRadius: 8 }} />
+                  <p><a href={latestImageMeta.image.signedUrl} download={latestImageMeta.image.fileName ?? "Generated Image.png"}>Download</a> <small>Expires {latestImageMeta.image.expiresAt ? new Date(latestImageMeta.image.expiresAt).toLocaleString() : "Soon"}</small></p>
+                  <div style={{ marginBottom: 6 }}>
+                    <button
+                      onClick={() => void attachGeneratedImage(latestImageMessage.id, latestImageMeta.image?.signedUrl ?? "")}
+                      disabled={!selectedClassId || attachStateByMessageId[latestImageMessage.id] === "loading"}
+                    >
+                      {attachStateByMessageId[latestImageMessage.id] === "loading" ? "Attaching..." : "Attach to class"}
+                    </button>
+                    {attachStateByMessageId[latestImageMessage.id] === "success" ? <small style={{ marginLeft: 8 }}>Attached</small> : null}
+                    {attachStateByMessageId[latestImageMessage.id] === "error" ? <small style={{ marginLeft: 8, color: "#9b1c1c" }}>Failed</small> : null}
+                  </div>
+                  {latestImageMeta?.usage ? (
+                    <small>
+                      {(latestImageMeta.usage.imageModel ?? latestImageMeta.usage.model)}
+                      {latestImageMeta.usage.orchestratorModel && latestImageMeta.usage.orchestratorModel !== (latestImageMeta.usage.imageModel ?? latestImageMeta.usage.model)
+                        ? ` (via ${latestImageMeta.usage.orchestratorModel})`
+                        : ""}
+                      {" "} - ${latestImageMeta.usage.estimatedCost} - {latestImageMeta.usage.durationMs}ms
+                      {latestImageMeta.usage.actualCostUsd != null ? ` - actual $${Number(latestImageMeta.usage.actualCostUsd).toFixed(6)} (${String(latestImageMeta.usage.costConfidence ?? "partial")})` : ""}
+                    </small>
+                  ) : null}
+                </article>
+              )}
             </div>
           </section>
         </>
@@ -805,3 +823,11 @@ export default function ChatPageClient() {
     </div>
   );
 }
+  function parseGenerationMeta(raw: string | undefined): GenerationImageMeta | null {
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw) as GenerationImageMeta;
+    } catch {
+      return null;
+    }
+  }
