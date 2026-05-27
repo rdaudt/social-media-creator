@@ -209,8 +209,16 @@ export default function ChatPageClient() {
   }
 
   function formatClassEntry(classDate: string | null, startTime: string | null, locationName: string | null, className: string | null): string {
-    const datePart = classDate || "No date";
-    const startTimePart = startTime ? new Date(startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "No time";
+    const datePart = classDate && /^\d{4}-\d{2}-\d{2}$/.test(classDate)
+      ? classDate
+      : (classDate || "No date");
+    const startTimePart = (() => {
+      if (!startTime) return "No time";
+      if (/^\d{2}:\d{2}(:\d{2})?$/.test(startTime)) return startTime.slice(0, 5);
+      const parsed = new Date(startTime);
+      if (Number.isNaN(parsed.getTime())) return "No time";
+      return parsed.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    })();
     const locationPart = locationName || "No location";
     const classNamePart = className || "No class name";
     return `${datePart} - ${startTimePart} - ${locationPart} - ${classNamePart}`;
