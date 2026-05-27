@@ -175,17 +175,24 @@ export async function POST(req: Request) {
       expiresAt
     })));
 
-    if (bootstrap.coach?.coachPhotoUrl) {
-      stagedImages.push(await stageReferenceImage(body.sessionId, "coach_photo_url", bootstrap.coach.coachPhotoUrl, "coach_profile", publicOrigin));
-    }
-    if (bootstrap.coach?.businessLogoUrl) {
-      stagedImages.push(await stageReferenceImage(body.sessionId, "business_logo_url", bootstrap.coach.businessLogoUrl, "coach_profile", publicOrigin));
-    }
-    if (selectedLocation?.logoUrl) {
-      stagedImages.push(await stageReferenceImage(body.sessionId, "location_logo_url", selectedLocation.logoUrl, "location", publicOrigin));
-    }
+    const coachPhotoRef = bootstrap.coach?.coachPhotoUrl
+      ? await tryStageOptionalReference(body.sessionId, "coach_photo_url", bootstrap.coach.coachPhotoUrl, "coach_profile", publicOrigin, reqId)
+      : null;
+    if (coachPhotoRef) stagedImages.push(coachPhotoRef);
+
+    const businessLogoRef = bootstrap.coach?.businessLogoUrl
+      ? await tryStageOptionalReference(body.sessionId, "business_logo_url", bootstrap.coach.businessLogoUrl, "coach_profile", publicOrigin, reqId)
+      : null;
+    if (businessLogoRef) stagedImages.push(businessLogoRef);
+
+    const locationLogoRef = selectedLocation?.logoUrl
+      ? await tryStageOptionalReference(body.sessionId, "location_logo_url", selectedLocation.logoUrl, "location", publicOrigin, reqId)
+      : null;
+    if (locationLogoRef) stagedImages.push(locationLogoRef);
+
     for (const asset of ownedAssetUrls) {
-      stagedImages.push(await stageReferenceImage(body.sessionId, "selected_asset", asset.url, "asset", publicOrigin));
+      const assetRef = await tryStageOptionalReference(body.sessionId, "selected_asset", asset.url, "asset", publicOrigin, reqId);
+      if (assetRef) stagedImages.push(assetRef);
     }
 
     const history = await db.execute({
@@ -577,6 +584,24 @@ function getUserFacingErrorMessage(error: unknown, code: string): string {
     return "Image generation could not be completed because of a connection error. Please try again.";
   }
   return "Generation failed safely. Try again.";
+}
+
+async function tryStageOptionalReference(
+  sessionId: string,
+  role: Exclude<StagedImageRole, "user_uploaded_image">,
+  sourceUrl: string,
+  source: Exclude<StagedImageReference["source"], "upload">,
+  publicOrigin: string,
+  reqId: string
+): Promise<StagedImageReference | null> {
+  try {
+    return await stageReferenceImage(sessionId, role, sourceUrl, source, publicOrigin);
+  } catch (error) {
+    const code = error instanceof Error ? error.message : "reference_stage_failed";
+    // Optional references should not block image generation.
+    console.warn(`[chat.generate][${reqId}] optional_reference_skipped role=${role} code=${code}`);
+    return null;
+  }
 }
 
 function buildGeneratedImageFileName(templateTitle: string, createdAtIso: string): string {
