@@ -70,6 +70,8 @@ export type CoachHiitClass = {
   category: string | null;
   classDate: string | null;
   startTime: string | null;
+  endTime: string | null;
+  locationId: string | null;
   locationLabelAtRun: string | null;
   timerSnapshotJson: string | null;
   ranAt: string | null;

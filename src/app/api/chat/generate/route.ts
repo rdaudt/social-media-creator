@@ -6,6 +6,7 @@ import { bootstrapSchema, db, newId } from "@/lib/db";
 import { authErrorResponse } from "@/lib/http";
 import { generateImageWithContext } from "@/lib/openai";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { validateHiitClassForMediaGeneration } from "@/lib/hiitClassValidation";
 import { generateSchema } from "@/lib/validation";
 import { calculateActualCostUsd, estimateCostUsdFromTotals, resolvePricingRateSet, type CostConfidence } from "@/lib/pricing";
 import type { ChatBootstrapResponse, CoachHiitClass, CoachLocation, GenerateResponse } from "@/types";
@@ -144,9 +145,9 @@ export async function POST(req: Request) {
     if (!selectedClass) {
       return NextResponse.json({ error: "invalid_class_scope" }, { status: 403 });
     }
-    const classStartTime = selectedClass.startTime ?? selectedClass.ranAt;
-    if (!selectedClass.classDate || !classStartTime) {
-      return validationError("class_schedule_required", "The selected HIIT class needs a date and start time before image generation.");
+    const hiitValidation = validateHiitClassForMediaGeneration(selectedClass);
+    if (!hiitValidation.ok) {
+      return validationError(hiitValidation.code, hiitValidation.message);
     }
 
     const classMatchedLocation = findLocationForClass(bootstrap.locations, selectedClass);
