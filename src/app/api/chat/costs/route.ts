@@ -22,7 +22,8 @@ export async function GET(req: Request) {
     const spend = await db.execute({
       sql: `SELECT
               SUM(CASE WHEN created_at >= ? THEN actual_cost_usd ELSE 0 END) AS today_total,
-              SUM(CASE WHEN created_at >= ? THEN actual_cost_usd ELSE 0 END) AS month_total
+              SUM(CASE WHEN created_at >= ? THEN actual_cost_usd ELSE 0 END) AS month_total,
+              SUM(actual_cost_usd) AS lifetime_total
             FROM interaction_usage
             WHERE owner_google_sub = ? AND request_type = 'image_generation'`,
       args: [dayStart, monthStart, user.sub]
@@ -32,7 +33,8 @@ export async function GET(req: Request) {
       estimate,
       spend: {
         todayUsd: Number(Number(row?.today_total ?? 0).toFixed(6)),
-        monthUsd: Number(Number(row?.month_total ?? 0).toFixed(6))
+        monthUsd: Number(Number(row?.month_total ?? 0).toFixed(6)),
+        lifetimeUsd: Number(Number(row?.lifetime_total ?? 0).toFixed(6))
       },
       pricingBasis: {
         model,
@@ -44,4 +46,3 @@ export async function GET(req: Request) {
     return authErrorResponse(error) ?? NextResponse.json({ error: "internal_error" }, { status: 500 });
   }
 }
-

@@ -7,7 +7,7 @@ type Message = { id: string; role: string; content: string; generation_metadata_
 type TempUploadResponseItem = { url: string; name?: string };
 type CostSnapshot = {
   estimate?: { minEstimateUsd: number; maxEstimateUsd: number; confidence: "high" | "low" };
-  spend?: { todayUsd: number; monthUsd: number };
+  spend?: { todayUsd: number; monthUsd: number; lifetimeUsd: number };
   pricingBasis?: { model: string; effectiveFrom: string; version: string };
 };
 const WORKOUT_WARRIOR_TEMPLATE_TITLES = new Set([
@@ -619,6 +619,7 @@ export default function ChatPageClient() {
                 <small>This run: ${runCostUsd.toFixed(4)} ({runCostConfidence})</small>
                 <small>Today: ${(costSnapshot?.spend?.todayUsd ?? 0).toFixed(4)}</small>
                 <small>This month: ${(costSnapshot?.spend?.monthUsd ?? 0).toFixed(4)}</small>
+                <small>Lifetime: ${(costSnapshot?.spend?.lifetimeUsd ?? 0).toFixed(4)}</small>
               </div>
               {generationStatus ? <p style={{ marginTop: 8 }}>{generationStatus}</p> : null}
               {generationError ? <p style={{ marginTop: 8, color: "#9b1c1c" }}>{generationError}</p> : null}
