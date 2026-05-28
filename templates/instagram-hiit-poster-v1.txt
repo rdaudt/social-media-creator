@@ -1,4 +1,4 @@
- Create a modern, premium HIIT class promotional poster for Instagram.
+ Create a HIIT class promotional poster for Instagram.
 
   [OUTPUT SPEC]
   - Platform: Instagram
@@ -8,15 +8,9 @@
   - Mobile readability required
   - Keep all critical text inside safe margins (at least 8% inset from edges)
 
-  [VISUAL STYLE]
-  - High-end athletic marketing poster aesthetic
-  - Black textured/grunge background
-  - Orange, gold, white, and subtle gray accents
-  - Bold fitness typography
-  - Strong visual hierarchy
-  - Dynamic but organized composition
-  - Clean layout with minimal clutter
-  - Premium modern gym branding look
+  [STYLE HANDOFF]
+  - Aesthetic treatment (palette, texture, typography mood, decorative effects) is controlled by the selected style preset.
+  - This template defines composition, required fields, and data mapping only.
 
   [DATA FIELDS TO USE]
   - {business_logo_url}
@@ -95,11 +89,9 @@
   - If logo is missing, hide logo block and rebalance top layout.
   - If coach image is missing, replace feature image area with branded abstract shape and keep coach name text.
   [DESIGN RULES]
-  - Keep layout clean and modern
   - Avoid overcrowding
   - Maintain strong alignment and spacing
-  - Use subtle glow/highlight effects sparingly
-  - Ensure typography is sharp and readable
-  - Use strong contrast between black background and orange/white text
+  - Ensure all text is sharp and readable on mobile
+  - Ensure clear foreground/background contrast for all required text and data
   - No third-party logos, no unsafe or graphic imagery
-  - Final image should look like a professional HIIT event poster template suitable for repeated automated generation
+  - Output must preserve all required sections and data fields for repeated automated generation
