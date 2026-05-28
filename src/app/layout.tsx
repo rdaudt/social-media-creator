@@ -2,8 +2,30 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { Barlow_Condensed, DM_Sans } from "next/font/google";
+import type { Metadata, Viewport } from "next";
 import { auth, signOut } from "@/auth";
 import "./globals.css";
+
+export const metadata: Metadata = {
+  title: "Social Media Creator",
+  description: "Create branded social media graphics from HIIT class data.",
+  applicationName: "Social Media Creator",
+  appleWebApp: {
+    capable: true,
+    title: "Social Media Creator",
+    statusBarStyle: "black-translucent"
+  },
+  formatDetection: {
+    telephone: false
+  }
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#0a0a0a"
+};
 
 const displayFont = Barlow_Condensed({
   subsets: ["latin"],
