@@ -1,10 +1,6 @@
 import { db } from "@/lib/db";
 import type { ChatBootstrapResponse, CoachHiitClass, CoachLocation, CoachProfile } from "@/types";
 
-function normalizeEmail(email: string): string {
-  return email.trim().toLowerCase();
-}
-
 function asStringOrNull(v: unknown): string | null {
   return v == null ? null : String(v);
 }

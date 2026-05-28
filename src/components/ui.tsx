@@ -1,11 +1,12 @@
 import type { ButtonHTMLAttributes, HTMLAttributes, PropsWithChildren } from "react";
 
-type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
+type ButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "google";
 
 function variantClass(variant: ButtonVariant): string {
   if (variant === "secondary") return "btn-secondary";
   if (variant === "ghost") return "btn-ghost";
   if (variant === "danger") return "btn-danger";
+  if (variant === "google") return "btn-google";
   return "";
 }
 

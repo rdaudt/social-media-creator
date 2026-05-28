@@ -195,6 +195,38 @@ button:hover:not(:disabled) {
   color: #ffdcdc;
 }
 
+.btn-google {
+  background: #ffffff;
+  border: 1px solid #dadce0;
+  color: #3c4043;
+  text-transform: none;
+  font-family: var(--font-body), "Segoe UI", sans-serif;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 44px;
+}
+
+.btn-google:hover:not(:disabled) {
+  background: #f8f9fa;
+  border-color: #c7c9cc;
+  filter: none;
+}
+
+.btn-google:focus-visible {
+  box-shadow: 0 0 0 3px rgb(66 133 244 / 35%);
+}
+
+.btn-google svg {
+  flex: 0 0 auto;
+}
+
+.google-signin-button {
+  width: 100%;
+}
+
 button:disabled {
   cursor: not-allowed;
   opacity: 0.55;
