@@ -55,16 +55,29 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <span className="brand">Social Media Creator</span>
             <Link className="nav-link" href="/chat">Media Creation</Link>
             <Link className="nav-link" href="/admin/prompt-templates">Admin Templates</Link>
-            {session?.user ? (
-              <form action={signOutAction} style={{ display: "inline" }}>
-                <button type="submit">Sign Out ({session.user.email})</button>
-              </form>
-            ) : (
+            {session?.user?.image ? (
+              // Temporary auth verification: show Google profile image if available in session.
+              <img
+                className="topbar-avatar"
+                src={session.user.image}
+                alt={session.user.email ? `${session.user.email} profile` : "Profile"}
+                width={36}
+                height={36}
+              />
+            ) : null}
+            {session?.user ? null : (
               <Link className="nav-link" href="/signin">Sign In</Link>
             )}
           </nav>
         </header>
         <main className="container page">{children}</main>
+        {session?.user ? (
+          <footer className="container page-end-actions">
+            <form action={signOutAction}>
+              <button type="submit">Sign Out ({session.user.email})</button>
+            </form>
+          </footer>
+        ) : null}
       </body>
     </html>
   );

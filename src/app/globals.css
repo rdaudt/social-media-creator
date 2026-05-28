@@ -98,10 +98,26 @@ a {
   color: var(--accent-400);
 }
 
+.topbar-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  object-fit: cover;
+  border: 1px solid var(--border-strong);
+  margin-left: 2px;
+}
+
 .container {
   max-width: 1120px;
   margin: 0 auto;
   padding: 16px;
+}
+
+.page-end-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 0;
+  padding-bottom: 16px;
 }
 
 .page {
