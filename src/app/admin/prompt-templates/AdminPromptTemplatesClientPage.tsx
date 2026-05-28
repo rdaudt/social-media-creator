@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Button, Panel } from "@/components/ui";
 
 export default function AdminPromptTemplatesClientPage() {
   const [title, setTitle] = useState("Instagram Promo");
@@ -15,11 +16,13 @@ export default function AdminPromptTemplatesClientPage() {
   }
 
   return (
-    <section className="card">
-      <h2>Admin Template CRUD</h2>
+    <Panel className="stack">
+      <h2 className="panel-title">Admin Template CRUD</h2>
       <input value={title} onChange={(e) => setTitle(e.target.value)} />
       <textarea rows={5} value={promptText} onChange={(e) => setPromptText(e.target.value)} />
-      <button onClick={createTemplate}>Create Template</button>
-    </section>
+      <div className="actions">
+        <Button onClick={createTemplate}>Create Template</Button>
+      </div>
+    </Panel>
   );
 }

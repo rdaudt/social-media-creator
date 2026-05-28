@@ -541,14 +541,46 @@ export default function ChatPageClient() {
   const runCostConfidence = String(latestMeta?.usage?.costConfidence ?? "partial");
 
   return (
-    <div className="grid" style={{ position: "relative" }}>
-      <section className="card" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        <button onClick={() => setActiveTab("chat")} disabled={activeTab === "chat" || isFormLocked}>Media Creation Studio</button>
-        <button onClick={() => setActiveTab("prompt")} disabled={activeTab === "prompt" || isFormLocked}>Prompt Debug</button>
-        <button onClick={() => setActiveTab("classMedia")} disabled={activeTab === "classMedia" || isFormLocked}>Media Management</button>
-      </section>
+    <div className="grid">
       <section className="card">
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div className="tab-row" role="tablist" aria-label="Media creation views">
+          <button
+            type="button"
+            className={`tab-button ${activeTab === "chat" ? "is-active" : ""}`}
+            onClick={() => setActiveTab("chat")}
+            disabled={activeTab === "chat" || isFormLocked}
+            role="tab"
+            aria-selected={activeTab === "chat"}
+            aria-label="Open Media Creation Studio"
+          >
+            Media Creation Studio
+          </button>
+          <button
+            type="button"
+            className={`tab-button ${activeTab === "prompt" ? "is-active" : ""}`}
+            onClick={() => setActiveTab("prompt")}
+            disabled={activeTab === "prompt" || isFormLocked}
+            role="tab"
+            aria-selected={activeTab === "prompt"}
+            aria-label="Open Prompt Debug"
+          >
+            Prompt Debug
+          </button>
+          <button
+            type="button"
+            className={`tab-button ${activeTab === "classMedia" ? "is-active" : ""}`}
+            onClick={() => setActiveTab("classMedia")}
+            disabled={activeTab === "classMedia" || isFormLocked}
+            role="tab"
+            aria-selected={activeTab === "classMedia"}
+            aria-label="Open Media Management"
+          >
+            Media Management
+          </button>
+        </div>
+      </section>
+      <section className="card stack">
+        <div className="split" style={{ justifyContent: "flex-start", gap: 10 }}>
           {toImageSrc(bootstrap?.coach?.coachPhotoUrl) ? (
             <img
               src={toImageSrc(bootstrap?.coach?.coachPhotoUrl) ?? ""}
@@ -556,9 +588,9 @@ export default function ChatPageClient() {
               style={{ width: 44, height: 44, objectFit: "cover", borderRadius: "50%" }}
             />
           ) : null}
-          <h2 style={{ margin: 0 }}>{bootstrap?.coach?.coachName ?? "Coach"}</h2>
+          <h2 className="panel-title">{bootstrap?.coach?.coachName ?? "Coach"}</h2>
         </div>
-        <h3 style={{ marginTop: 10 }}>HIIT Classes</h3>
+        <h3>HIIT Classes</h3>
         <select value={selectedClassId} onChange={(e) => onClassChange(e.target.value)} disabled={isFormLocked}>
           <option value="">Select a class</option>
           {(bootstrap?.classes ?? []).map((klass) => (
@@ -567,20 +599,20 @@ export default function ChatPageClient() {
             </option>
           ))}
         </select>
-        <h3 style={{ marginTop: 10 }}>Template</h3>
+        <h3>Template</h3>
         <select value={selectedTemplateId} onChange={(e) => onTemplateChange(e.target.value)} disabled={isFormLocked}>
           <option value="">No template</option>
           {(bootstrap?.templates ?? []).map((tpl) => (
             <option key={tpl.id} value={tpl.id}>{tpl.title}</option>
           ))}
         </select>
-        <h3 style={{ marginTop: 10 }}>Format</h3>
+        <h3>Format</h3>
         <select value={selectedFormat} onChange={(e) => setSelectedFormat(e.target.value as "square" | "portrait" | "story")} disabled={isFormLocked}>
           <option value="square">Square (1080x1080)</option>
           <option value="portrait">Portrait (1080x1350)</option>
           <option value="story">Story (1080x1920)</option>
         </select>
-        <h3 style={{ marginTop: 10 }}>Assets</h3>
+        <h3>Assets</h3>
         <div style={{ maxHeight: 160, overflowY: "auto" }}>
           {(bootstrap?.assets ?? []).map((asset) => (
             <label key={asset.id} style={{ display: "block" }}>
@@ -588,7 +620,7 @@ export default function ChatPageClient() {
             </label>
           ))}
         </div>
-        <h3 style={{ marginTop: 10 }}>Upload References</h3>
+        <h3>Upload References</h3>
         <input type="file" accept="image/jpeg,image/png,.jpg,.jpeg,.png" multiple onChange={(e) => void uploadReferenceFiles(e.target.files)} disabled={isFormLocked} />
         {tempUploadNames.length ? <small>{tempUploadNames.length} staged: {tempUploadNames.join(", ")}</small> : null}
         {isWorkoutWarriorTemplate ? (
@@ -613,8 +645,8 @@ export default function ChatPageClient() {
       </section>
       {activeTab === "chat" ? (
         <>
-          <section className="card">
-            <h2 style={{ marginTop: 0 }}>Prompt</h2>
+          <section className="card stack">
+            <h2 className="panel-title">Prompt</h2>
               <textarea
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
@@ -623,39 +655,40 @@ export default function ChatPageClient() {
                 style={{ width: "100%", minHeight: 360, resize: "vertical" }}
                 disabled={isFormLocked}
               />
-              <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
-                <button onClick={submitGenerate} disabled={isGenerating}>{isGenerating ? "Generating..." : "Generate"}</button>
-                <button onClick={submitDownloadPrompt} disabled={isGenerating || isDownloadingPrompt || isFormLocked}>
+              <div className="actions">
+                <button type="button" onClick={submitGenerate} disabled={isGenerating}>{isGenerating ? "Generating..." : "Generate"}</button>
+                <button type="button" onClick={submitDownloadPrompt} disabled={isGenerating || isDownloadingPrompt || isFormLocked}>
                   {isDownloadingPrompt ? "Preparing..." : "Download LLM Message"}
                 </button>
               </div>
               {costSnapshot?.estimate ? (
-                <p style={{ marginTop: 8 }}>
+                <p className="muted">
                   Estimated cost: ${costSnapshot.estimate.minEstimateUsd.toFixed(4)} - ${costSnapshot.estimate.maxEstimateUsd.toFixed(4)}
                   {" "}({costSnapshot.estimate.confidence} confidence)
                   {costSnapshot.pricingBasis ? ` | Pricing basis: ${costSnapshot.pricingBasis.model} effective ${new Date(costSnapshot.pricingBasis.effectiveFrom).toLocaleDateString()}` : ""}
                 </p>
               ) : null}
-              <div style={{ display: "flex", gap: 10, marginTop: 8, flexWrap: "wrap" }}>
+              <div className="actions">
                 <small>This run: ${runCostUsd.toFixed(4)} ({runCostConfidence})</small>
                 <small>Today: ${(costSnapshot?.spend?.todayUsd ?? 0).toFixed(4)}</small>
                 <small>This month: ${(costSnapshot?.spend?.monthUsd ?? 0).toFixed(4)}</small>
                 <small>Lifetime: ${(costSnapshot?.spend?.lifetimeUsd ?? 0).toFixed(4)}</small>
               </div>
-              {generationStatus ? <p style={{ marginTop: 8 }}>{generationStatus}</p> : null}
-              {generationError ? <p style={{ marginTop: 8, color: "#9b1c1c" }}>{generationError}</p> : null}
+              {generationStatus ? <p className="alert" role="status">{generationStatus}</p> : null}
+              {generationError ? <p className="alert error" role="alert">{generationError}</p> : null}
           </section>
-          <section className="card">
-            <h2 style={{ marginTop: 0 }}>Created image</h2>
+          <section className="card stack">
+            <h2 className="panel-title">Created Image</h2>
             <div style={{ marginTop: 12 }}>
               {!latestImageMessage || !latestImageMeta?.image?.signedUrl ? (
                 <p>No generated image found for this session yet.</p>
               ) : (
-                <article key={latestImageMessage.id} className="card">
+                <article key={latestImageMessage.id} className="card stack">
                   <img src={latestImageMeta.image.signedUrl} alt="generated" style={{ width: "100%", borderRadius: 8 }} />
                   <p><a href={latestImageMeta.image.signedUrl} download={latestImageMeta.image.fileName ?? "Generated Image.png"}>Download</a> <small>Expires {latestImageMeta.image.expiresAt ? new Date(latestImageMeta.image.expiresAt).toLocaleString() : "Soon"}</small></p>
                   <div style={{ marginBottom: 6 }}>
                     <button
+                      type="button"
                       onClick={() => void attachGeneratedImage(latestImageMessage.id, latestImageMeta.image?.signedUrl ?? "")}
                       disabled={!selectedClassId || attachStateByMessageId[latestImageMessage.id] === "loading"}
                     >
@@ -680,9 +713,9 @@ export default function ChatPageClient() {
           </section>
         </>
       ) : activeTab === "prompt" ? (
-        <section className="card">
-          <h2 style={{ marginTop: 0 }}>Prompt Debug</h2>
-              <p>Complete prompt sent to the LLM for the latest generation request.</p>
+        <section className="card stack">
+          <h2 className="panel-title">Prompt Debug</h2>
+              <p className="muted">Complete prompt sent to the LLM for the latest generation request.</p>
               <textarea
                 readOnly
                 value={assembledPrompt || "No assembled prompt found yet for the latest request."}
@@ -698,9 +731,9 @@ export default function ChatPageClient() {
               />
         </section>
       ) : (
-        <section className="card">
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                <h2 style={{ margin: 0 }}>Media Management</h2>
+        <section className="card stack">
+          <div className="split">
+                <h2 className="panel-title">Media Management</h2>
                 <button
                   type="button"
                   onClick={() => selectedClassId ? void loadClassMedia(selectedClassId) : undefined}
@@ -712,11 +745,12 @@ export default function ChatPageClient() {
               {!selectedClassId ? <p>Select a HIIT class to manage attached media.</p> : null}
               {isLoadingClassMedia ? <p>Loading class media...</p> : null}
               {!isLoadingClassMedia && selectedClassId && classMedia.length === 0 ? <p>No media attached yet for this class.</p> : null}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12 }}>
+              <div className="media-grid">
                 {classMedia.map((media) => (
-                  <article key={media.id} className="card">
+                  <article key={media.id} className="card stack">
                     {toImageSrc(media.blobUrl) ? (
                       <button
+                        type="button"
                         onClick={() => setSelectedClassMediaPreviewUrl(toImageSrc(media.blobUrl))}
                         style={{ border: 0, background: "transparent", padding: 0, cursor: "pointer", width: "100%" }}
                         aria-label="Open class media preview"
@@ -738,7 +772,7 @@ export default function ChatPageClient() {
                       {shareStateByMediaId[media.id] ? <small>Saving...</small> : null}
                     </div>
                     <div style={{ marginTop: 8 }}>
-                      <button onClick={() => void deleteClassMedia(media.id)} disabled={Boolean(deleteStateByMediaId[media.id])}>
+                      <button type="button" onClick={() => void deleteClassMedia(media.id)} disabled={Boolean(deleteStateByMediaId[media.id])}>
                         {deleteStateByMediaId[media.id] ? "Deleting..." : "Delete"}
                       </button>
                     </div>
@@ -752,21 +786,12 @@ export default function ChatPageClient() {
           role="dialog"
           aria-modal="true"
           onClick={() => setSelectedClassMediaPreviewUrl(null)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0, 0, 0, 0.7)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1100,
-            padding: 16
-          }}
+          className="overlay"
         >
           <div className="card" style={{ maxWidth: "95vw", maxHeight: "95vh" }} onClick={(e) => e.stopPropagation()}>
             <img src={selectedClassMediaPreviewUrl} alt="Class media preview" style={{ maxWidth: "90vw", maxHeight: "80vh", borderRadius: 8 }} />
             <div style={{ marginTop: 8, textAlign: "right" }}>
-              <button onClick={() => setSelectedClassMediaPreviewUrl(null)}>Close</button>
+              <button type="button" onClick={() => setSelectedClassMediaPreviewUrl(null)}>Close</button>
             </div>
           </div>
         </div>
@@ -776,15 +801,7 @@ export default function ChatPageClient() {
           role="dialog"
           aria-modal="true"
           aria-live="polite"
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0, 0, 0, 0.45)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000
-          }}
+          className="overlay"
         >
           <div
             className="card"
@@ -796,28 +813,13 @@ export default function ChatPageClient() {
           >
             <div
               aria-hidden="true"
-              style={{
-                width: 36,
-                height: 36,
-                margin: "0 auto 12px auto",
-                borderRadius: "50%",
-                border: "4px solid #d1d5db",
-                borderTopColor: "#0f766e",
-                animation: "spin 1s linear infinite"
-              }}
+              className="spinner"
             />
             <p style={{ margin: "0 0 10px 0", fontSize: 12, color: "#4b5563" }}>
               {elapsedMinutes}:{elapsedSeconds}
             </p>
             <p style={{ margin: 0, fontWeight: 700 }}>Generating image... usually takes ~3 minutes</p>
           </div>
-          <style jsx>{`
-            @keyframes spin {
-              to {
-                transform: rotate(360deg);
-              }
-            }
-          `}</style>
         </div>
       ) : null}
     </div>

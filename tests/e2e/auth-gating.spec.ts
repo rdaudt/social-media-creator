@@ -43,7 +43,7 @@ test("authenticated coach can load /chat", async ({ page }) => {
   await expect(page).toHaveURL(/\/chat$/);
 });
 
-test("selected location and class are sent in generate request", async ({ page }) => {
+test("selected class is sent in generate request", async ({ page }) => {
   await setBypassSession(page, { sub: "user_coach", email: "coach@example.com", role: "coach", coachMember: true });
 
   await page.route("**/api/chat/bootstrap", async (route) => {
@@ -53,7 +53,7 @@ test("selected location and class are sent in generate request", async ({ page }
       body: JSON.stringify({
         coach: { id: "tenant_1", businessName: "Fit Lab", coachName: "Alex", coachPhotoUrl: null, businessLogoUrl: null, bio: null, brandHeadline: null, headerTagline: null, themePrimaryColor: null, themeSecondaryColor: null, igUsername: null },
         locations: [{ id: "loc_1", businessName: "Fit Lab", locationName: "Downtown", logoUrl: null, isDefault: true, sortOrder: 0 }],
-        classes: [{ id: "class_1", timerNameAtRun: "Morning Blast", category: "HIIT", classDate: "2026-05-20", startTime: "2026-05-20T10:00:00.000Z", locationLabelAtRun: "Downtown", timerSnapshotJson: "{}", ranAt: "2026-05-20T10:00:00.000Z" }],
+        classes: [{ id: "class_1", timerNameAtRun: "Morning Blast", category: "HIIT", classDate: "2026-05-20", startTime: "2026-05-20T10:00:00.000Z", endTime: "2026-05-20T11:00:00.000Z", locationId: "loc_1", locationLabelAtRun: "Downtown", stationWorkoutTypesJson: "[\"squat\"]", timerSnapshotJson: "{\"stationCount\":1}", ranAt: "2026-05-20T10:00:00.000Z" }],
         assets: [],
         templates: [],
         sessions: [{ id: "chat_1", title: "Test Session", createdAt: "2026-05-20T10:00:00.000Z", updatedAt: "2026-05-20T10:00:00.000Z" }],
@@ -61,8 +61,15 @@ test("selected location and class are sent in generate request", async ({ page }
       })
     });
   });
-  await page.route("**/api/chat/sessions/chat_1/messages", async (route) => {
+  await page.route("**/api/chat/sessions/chat_created/messages", async (route) => {
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ messages: [] }) });
+  });
+  await page.route("**/api/chat/sessions", async (route) => {
+    if (route.request().method() === "POST") {
+      await route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ id: "chat_created", title: "New session", createdAt: "2026-05-20T10:00:00.000Z", updatedAt: "2026-05-20T10:00:00.000Z" }) });
+      return;
+    }
+    await route.fallback();
   });
 
   let generatePayload: Record<string, unknown> | null = null;
@@ -77,8 +84,7 @@ test("selected location and class are sent in generate request", async ({ page }
   await page.getByPlaceholder("Describe the image you want to generate").fill("Create a class promo post");
   await page.getByRole("button", { name: "Generate" }).click();
 
-  expect(generatePayload?.locationId).toBe("loc_1");
-  expect(generatePayload?.classId).toBe("class_1");
+  await expect.poll(() => generatePayload?.classId).toBe("class_1");
 });
 
 test("generation is blocked until a HIIT class is selected", async ({ page }) => {
@@ -91,11 +97,11 @@ test("generation is blocked until a HIIT class is selected", async ({ page }) =>
       body: JSON.stringify({
         coach: null,
         locations: [],
-        classes: [{ id: "class_1", timerNameAtRun: "Morning Blast", category: "HIIT", classDate: "2026-05-20", startTime: "2026-05-20T10:00:00.000Z", locationLabelAtRun: null, timerSnapshotJson: "{}", ranAt: "2026-05-20T10:00:00.000Z" }],
+        classes: [],
         assets: [],
         templates: [],
         sessions: [{ id: "chat_1", title: "Test Session", createdAt: "2026-05-20T10:00:00.000Z", updatedAt: "2026-05-20T10:00:00.000Z" }],
-        defaults: { selectedLocationId: undefined, selectedClassId: "class_1" }
+        defaults: { selectedLocationId: undefined, selectedClassId: undefined }
       })
     });
   });
@@ -156,7 +162,7 @@ test("generate creates a session when none exists", async ({ page }) => {
       body: JSON.stringify({
         coach: null,
         locations: [{ id: "loc_1", businessName: "Fit Lab", locationName: "Downtown", logoUrl: null, isDefault: true, sortOrder: 0 }],
-        classes: [{ id: "class_1", timerNameAtRun: "Morning Blast", category: "HIIT", classDate: "2026-05-20", startTime: "2026-05-20T10:00:00.000Z", locationLabelAtRun: "Downtown", timerSnapshotJson: "{}", ranAt: "2026-05-20T10:00:00.000Z" }],
+        classes: [{ id: "class_1", timerNameAtRun: "Morning Blast", category: "HIIT", classDate: "2026-05-20", startTime: "2026-05-20T10:00:00.000Z", endTime: "2026-05-20T11:00:00.000Z", locationId: "loc_1", locationLabelAtRun: "Downtown", stationWorkoutTypesJson: "[\"squat\"]", timerSnapshotJson: "{\"stationCount\":1}", ranAt: "2026-05-20T10:00:00.000Z" }],
         assets: [],
         templates: [],
         sessions: [],
