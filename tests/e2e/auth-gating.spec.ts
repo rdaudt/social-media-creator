@@ -55,6 +55,10 @@ test("selected class is sent in generate request", async ({ page }) => {
         locations: [{ id: "loc_1", businessName: "Fit Lab", locationName: "Downtown", logoUrl: null, isDefault: true, sortOrder: 0 }],
         classes: [{ id: "class_1", timerNameAtRun: "Morning Blast", category: "HIIT", classDate: "2026-05-20", startTime: "2026-05-20T10:00:00.000Z", endTime: "2026-05-20T11:00:00.000Z", locationId: "loc_1", locationLabelAtRun: "Downtown", stationWorkoutTypesJson: "[\"squat\"]", timerSnapshotJson: "{\"stationCount\":1}", ranAt: "2026-05-20T10:00:00.000Z" }],
         assets: [],
+        stylePresets: [
+          { id: "style_clean_dashboard_v1", title: "Clean Performance Dashboard", description: "data-forward", platform: "instagram", format: "any", promptText: "clean", presetVersion: 1, isActive: true },
+          { id: "style_gritty_underground_v1", title: "Gritty Underground / Industrial", description: "gritty", platform: "instagram", format: "any", promptText: "gritty", presetVersion: 1, isActive: true }
+        ],
         templates: [],
         sessions: [{ id: "chat_1", title: "Test Session", createdAt: "2026-05-20T10:00:00.000Z", updatedAt: "2026-05-20T10:00:00.000Z" }],
         defaults: { selectedLocationId: "loc_1", selectedClassId: "class_1" }
@@ -81,10 +85,12 @@ test("selected class is sent in generate request", async ({ page }) => {
 
   await page.goto("/chat");
   await page.locator("select").first().selectOption("class_1");
+  await page.getByRole("combobox").nth(2).selectOption("style_gritty_underground_v1");
   await page.getByPlaceholder("Describe the image you want to generate").fill("Create a class promo post");
   await page.getByRole("button", { name: "Generate" }).click();
 
   await expect.poll(() => generatePayload?.classId).toBe("class_1");
+  await expect.poll(() => generatePayload?.stylePresetId).toBe("style_gritty_underground_v1");
 });
 
 test("generation is blocked until a HIIT class is selected", async ({ page }) => {

@@ -14,6 +14,7 @@ export const generateSchema = z.object({
   sessionId: z.string().min(1),
   message: z.string().min(1),
   promptTemplateId: z.string().optional(),
+  stylePresetId: z.string().optional(),
   attendeeName: z.string().trim().min(1).max(120).optional(),
   attendeeImageRef: z.string().url().optional(),
   locationId: z.string().optional(),

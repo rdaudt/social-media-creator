@@ -189,6 +189,13 @@ export async function getCoachBootstrap(ownerEmail: string, ownerSub: string): P
           ORDER BY updated_at DESC`,
     args: []
   });
+  const stylePresetsRes = await db.execute({
+    sql: `SELECT id, title, description, platform, format, prompt_text, preset_version, is_active
+          FROM style_presets
+          WHERE is_active = 1 AND platform = 'instagram'
+          ORDER BY updated_at DESC`,
+    args: []
+  });
   const sessionsRes = await db.execute({
     sql: `SELECT id, title, created_at, updated_at
           FROM chat_sessions
@@ -240,6 +247,16 @@ export async function getCoachBootstrap(ownerEmail: string, ownerSub: string): P
       templateVersion: asNumber(r.template_version, 1),
       promptText: String(r.prompt_text),
       defaultOptionsJson: asStringOrNull(r.default_options_json)
+    })),
+    stylePresets: stylePresetsRes.rows.map((r) => ({
+      id: String(r.id),
+      title: String(r.title),
+      description: asStringOrNull(r.description),
+      platform: String(r.platform),
+      format: String(r.format),
+      promptText: String(r.prompt_text),
+      presetVersion: asNumber(r.preset_version, 1),
+      isActive: asNumber(r.is_active, 1) === 1
     })),
     sessions: sessionsRes.rows.map((r) => ({
       id: String(r.id),

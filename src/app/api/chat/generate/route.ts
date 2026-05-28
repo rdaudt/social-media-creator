@@ -46,6 +46,7 @@ const WORKOUT_WARRIOR_TEMPLATE_TITLES = new Set([
   "ig hiit workout warrior",
   "ig hiit workout warrior collective"
 ]);
+const DEFAULT_STYLE_PRESET_ID = "style_clean_dashboard_v1";
 
 export async function POST(req: Request) {
   let ownerSub = "";
@@ -103,6 +104,28 @@ export async function POST(req: Request) {
       if (!templatePrompt) {
         return NextResponse.json({ error: "template_not_found" }, { status: 404 });
       }
+    }
+    const stylePresetId = body.stylePresetId || DEFAULT_STYLE_PRESET_ID;
+    const stylePresetRow = await db.execute({
+      sql: `SELECT id, title, platform, format, prompt_text, preset_version, is_active
+            FROM style_presets WHERE id = ? LIMIT 1`,
+      args: [stylePresetId]
+    });
+    const stylePreset = stylePresetRow.rows[0];
+    if (!stylePreset || Number(stylePreset.is_active ?? 0) !== 1) {
+      return validationError("style_preset_not_found", "Selected style preset is unavailable.");
+    }
+    const stylePlatform = String(stylePreset.platform ?? "").trim().toLowerCase();
+    const styleFormat = String(stylePreset.format ?? "").trim().toLowerCase();
+    if (stylePlatform !== "instagram") {
+      return validationError("style_preset_platform_mismatch", "Selected style preset is not compatible with Instagram.");
+    }
+    if (styleFormat !== "any" && styleFormat !== body.format) {
+      return validationError("style_preset_format_mismatch", "Selected style preset is not compatible with the selected format.");
+    }
+    const stylePrompt = String(stylePreset.prompt_text ?? "").trim();
+    if (!stylePrompt) {
+      return validationError("style_preset_invalid", "Selected style preset is invalid.");
     }
 
     const isWorkoutWarriorTemplate = WORKOUT_WARRIOR_TEMPLATE_TITLES.has(templateTitle.trim().toLowerCase());
@@ -229,8 +252,18 @@ export async function POST(req: Request) {
       "SYSTEM/ROLE",
       "You are creating a high-quality social image for a fitness coach. Follow the user prompt exactly while preserving coach context.",
       "",
+      "COMPOSITION_AUTHORITY_GUARDRAIL",
+      "Layout, required fields, data-to-visual mapping, component structure, and fallback behavior are authoritative. Do not let style alter, remove, reorder, or reinterpret required content.",
+      "",
       "USER_EDITED_PROMPT",
       body.message,
+      "",
+      "SELECTED_STYLE_PRESET",
+      stylePrompt,
+      "",
+      "STYLE_APPLICATION_RULES",
+      "Apply style only through palette, typography mood, texture, lighting, decorative effects, and background treatment.",
+      "Do not change layout regions, required fields, table columns, data mapping, logo fidelity, safe margins, or component order.",
       "",
       "GENERATION_CONTEXT_JSON",
       JSON.stringify(generationContextJson, null, 2),
@@ -259,6 +292,10 @@ export async function POST(req: Request) {
       format: body.format,
       outputSpec,
       promptTemplateId: body.promptTemplateId ?? null,
+      stylePresetId: String(stylePreset.id),
+      stylePresetTitle: String(stylePreset.title ?? ""),
+      stylePresetVersion: Number(stylePreset.preset_version ?? 1),
+      stylePrompt,
       templateVersion: templateMeta?.templateVersion ?? null,
       templateFamilyId: templateMeta?.templateFamilyId ?? null,
       templateSwitchFromId,

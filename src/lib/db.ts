@@ -85,6 +85,18 @@ export async function bootstrapSchema(): Promise<void> {
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     )`,
+    `CREATE TABLE IF NOT EXISTS style_presets (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      description TEXT,
+      platform TEXT NOT NULL,
+      format TEXT NOT NULL,
+      prompt_text TEXT NOT NULL,
+      preset_version INTEGER NOT NULL DEFAULT 1,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`,
     `CREATE TABLE IF NOT EXISTS coach_hiit_class_media (
       id TEXT PRIMARY KEY,
       coach_google_sub TEXT NOT NULL,
@@ -108,6 +120,7 @@ export async function bootstrapSchema(): Promise<void> {
   await ensureClassMediaColumns();
   await ensureCoachHiitClassColumns();
   await seedModelPricingRates();
+  await seedStylePresets();
 }
 
 async function ensurePromptTemplateColumns(): Promise<void> {
@@ -189,6 +202,83 @@ async function seedModelPricingRates(): Promise<void> {
       sql: `INSERT INTO model_pricing_rates (id, model, rate_type, usd_per_million_tokens, effective_from, effective_to, is_active, created_at)
             VALUES (?, 'gpt-image-2', ?, ?, ?, NULL, 1, ?)`,
       args: [id, rateType, rate, effectiveFrom, now]
+    })),
+    "write"
+  );
+}
+
+async function seedStylePresets(): Promise<void> {
+  const count = await db.execute({
+    sql: `SELECT COUNT(*) AS c FROM style_presets`,
+    args: []
+  });
+  if (Number(count.rows[0]?.c ?? 0) > 0) return;
+
+  const now = nowIso();
+  const presets: Array<{ id: string; title: string; description: string; platform: string; format: string; promptText: string }> = [
+    {
+      id: "style_gritty_underground_v1",
+      title: "Gritty Underground / Industrial",
+      description: "Raw, high-contrast training aesthetic with distressed textures.",
+      platform: "instagram",
+      format: "any",
+      promptText: "Use a gritty industrial visual treatment: distressed concrete/asphalt textures, stark contrast, rugged stencil-inspired accents, mostly grayscale palette, and one aggressive accent color such as safety yellow or deep red."
+    },
+    {
+      id: "style_modern_brutalism_v1",
+      title: "Modern Brutalism",
+      description: "Bold modular blocks and stark contrast for data-forward creative.",
+      platform: "instagram",
+      format: "any",
+      promptText: "Use a modern brutalist treatment: bold oversized typography feel, hard edges, strong borders, modular blocks, and stark high-contrast black/white with a single glaring primary accent (blue or green)."
+    },
+    {
+      id: "style_premium_editorial_v1",
+      title: "Premium Editorial / Boutique Studio",
+      description: "Luxurious editorial direction with refined spacing and muted tones.",
+      platform: "instagram",
+      format: "any",
+      promptText: "Use a premium editorial treatment: generous negative space, refined grid feel, elegant serif influence paired with clean sans-serif support, muted earth/off-white/charcoal palette, and subtle gold or bronze accents."
+    },
+    {
+      id: "style_cyber_glitch_v1",
+      title: "Cyber-Tech / Glitch",
+      description: "Futuristic HUD-inspired presentation with controlled glitch accents.",
+      platform: "instagram",
+      format: "any",
+      promptText: "Use a cyber-tech treatment: dark digital interface mood, HUD-inspired accents, subtle glitch motifs only as decoration, monospace data styling cues, and electric green/orange/white highlights."
+    },
+    {
+      id: "style_vhs_raw_v1",
+      title: "VHS / Raw Video Capture",
+      description: "Analog camcorder-inspired treatment grounded in workout footage.",
+      platform: "instagram",
+      format: "any",
+      promptText: "Use a VHS raw-capture treatment: mild scanlines, faint analog noise, slight desaturation, soft edge blur cues, and subtle recording-era motifs while preserving legibility and professional finish."
+    },
+    {
+      id: "style_clean_dashboard_v1",
+      title: "Clean Performance Dashboard",
+      description: "Crisp metric-first style optimized for workout data readability.",
+      platform: "instagram",
+      format: "any",
+      promptText: "Use a clean performance-dashboard treatment: crisp lines, clear information blocks, restrained modern typography, minimal decorative effects, and high legibility for metrics and schedule details."
+    },
+    {
+      id: "style_sports_broadcast_v1",
+      title: "Bold Sports Broadcast",
+      description: "Energetic match-day inspired style for class promo intensity.",
+      platform: "instagram",
+      format: "any",
+      promptText: "Use a bold sports-broadcast treatment: energetic spotlight contrast, strong headline energy, punchy accents, and athletic promo atmosphere while keeping all informational sections clear."
+    }
+  ];
+
+  await db.batch(
+    presets.map((preset) => ({
+      sql: `INSERT INTO style_presets (id, title, description, platform, format, prompt_text, preset_version, is_active, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, 1, 1, ?, ?)`,
+      args: [preset.id, preset.title, preset.description, preset.platform, preset.format, preset.promptText, now, now]
     })),
     "write"
   );

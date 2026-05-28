@@ -38,6 +38,7 @@ export default function ChatPageClient() {
   const [selectedLocationId, setSelectedLocationId] = useState<string>("");
   const [selectedClassId, setSelectedClassId] = useState<string>("");
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
+  const [selectedStylePresetId, setSelectedStylePresetId] = useState<string>("");
   const [selectedFormat, setSelectedFormat] = useState<"square" | "portrait" | "story">("square");
   const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>([]);
   const [runSessionId, setRunSessionId] = useState<string>("");
@@ -82,6 +83,9 @@ export default function ChatPageClient() {
         if (d.templates?.[0]) {
           setSelectedTemplateId(d.templates[0].id);
           setMessage(d.templates[0].promptText);
+        }
+        if (d.stylePresets?.[0]) {
+          setSelectedStylePresetId(d.stylePresets[0].id);
         }
       });
   }, []);
@@ -179,6 +183,7 @@ export default function ChatPageClient() {
           sessionId: activeSessionId,
           message,
           promptTemplateId: selectedTemplateId || undefined,
+          stylePresetId: selectedStylePresetId || undefined,
           attendeeName: attendeeName.trim() || undefined,
           attendeeImageRef: effectiveAttendeeImageRef || undefined,
           locationId: selectedLocationId || undefined,
@@ -308,6 +313,7 @@ export default function ChatPageClient() {
           sessionId: activeSessionId,
           message,
           promptTemplateId: selectedTemplateId || undefined,
+          stylePresetId: selectedStylePresetId || undefined,
           attendeeName: attendeeName.trim() || undefined,
           attendeeImageRef: effectiveAttendeeImageRef || undefined,
           locationId: selectedLocationId || undefined,
@@ -526,6 +532,7 @@ export default function ChatPageClient() {
     ? JSON.stringify(promptEnvelope.generationContextJson, null, 2)
     : "";
   const selectedTemplate = (bootstrap?.templates ?? []).find((tpl) => tpl.id === selectedTemplateId);
+  const stylePresetOptions = (bootstrap?.stylePresets ?? []).filter((preset) => preset.format === "any" || preset.format === selectedFormat);
   const isWorkoutWarriorTemplate = WORKOUT_WARRIOR_TEMPLATE_TITLES.has(selectedTemplate?.title?.trim().toLowerCase() ?? "");
   const isFormLocked = isGenerating;
   const elapsedMinutes = String(Math.floor(generationElapsedSeconds / 60)).padStart(2, "0");
@@ -604,6 +611,13 @@ export default function ChatPageClient() {
           <option value="">No template</option>
           {(bootstrap?.templates ?? []).map((tpl) => (
             <option key={tpl.id} value={tpl.id}>{tpl.title}</option>
+          ))}
+        </select>
+        <h3>Style</h3>
+        <select value={selectedStylePresetId} onChange={(e) => setSelectedStylePresetId(e.target.value)} disabled={isFormLocked}>
+          {!selectedStylePresetId ? <option value="">Default style</option> : null}
+          {stylePresetOptions.map((preset) => (
+            <option key={preset.id} value={preset.id}>{preset.title}</option>
           ))}
         </select>
         <h3>Format</h3>
