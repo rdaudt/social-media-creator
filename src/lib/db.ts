@@ -208,12 +208,6 @@ async function seedModelPricingRates(): Promise<void> {
 }
 
 async function seedStylePresets(): Promise<void> {
-  const count = await db.execute({
-    sql: `SELECT COUNT(*) AS c FROM style_presets`,
-    args: []
-  });
-  if (Number(count.rows[0]?.c ?? 0) > 0) return;
-
   const now = nowIso();
   const presets: Array<{ id: string; title: string; description: string; platform: string; format: string; promptText: string }> = [
     {
@@ -277,7 +271,16 @@ async function seedStylePresets(): Promise<void> {
   await db.batch(
     presets.map((preset) => ({
       sql: `INSERT INTO style_presets (id, title, description, platform, format, prompt_text, preset_version, is_active, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, 1, 1, ?, ?)`,
+            VALUES (?, ?, ?, ?, ?, ?, 1, 1, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+              title = excluded.title,
+              description = excluded.description,
+              platform = excluded.platform,
+              format = excluded.format,
+              prompt_text = excluded.prompt_text,
+              preset_version = excluded.preset_version,
+              is_active = excluded.is_active,
+              updated_at = excluded.updated_at`,
       args: [preset.id, preset.title, preset.description, preset.platform, preset.format, preset.promptText, now, now]
     })),
     "write"

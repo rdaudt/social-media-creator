@@ -31,6 +31,7 @@ const WORKOUT_WARRIOR_TEMPLATE_TITLES = new Set([
   "ig hiit workout warrior",
   "ig hiit workout warrior collective"
 ]);
+const DEFAULT_STYLE_PRESET_ID = "style_clean_dashboard_v1";
 
 export default function ChatPageClient() {
   const [activeTab, setActiveTab] = useState<"chat" | "prompt" | "classMedia">("chat");
@@ -84,8 +85,10 @@ export default function ChatPageClient() {
           setSelectedTemplateId(d.templates[0].id);
           setMessage(d.templates[0].promptText);
         }
-        if (d.stylePresets?.[0]) {
-          setSelectedStylePresetId(d.stylePresets[0].id);
+        const stylePresets = d.stylePresets ?? [];
+        const preferredStyle = stylePresets.find((preset) => preset.id === DEFAULT_STYLE_PRESET_ID) ?? stylePresets[0];
+        if (preferredStyle) {
+          setSelectedStylePresetId(preferredStyle.id);
         }
       });
   }, []);
