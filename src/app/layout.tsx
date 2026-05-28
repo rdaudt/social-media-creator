@@ -1,8 +1,21 @@
 export const dynamic = "force-dynamic";
 
 import Link from "next/link";
+import { Barlow_Condensed, DM_Sans } from "next/font/google";
 import { auth, signOut } from "@/auth";
 import "./globals.css";
+
+const displayFont = Barlow_Condensed({
+  subsets: ["latin"],
+  weight: ["600", "700"],
+  variable: "--font-display"
+});
+
+const bodyFont = DM_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "700"],
+  variable: "--font-body"
+});
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   async function signOutAction() {
@@ -14,21 +27,22 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
   return (
     <html lang="en">
-      <body>
+      <body className={`${displayFont.variable} ${bodyFont.variable}`}>
         <header className="topbar">
           <nav>
-            <Link href="/chat">Media Creation</Link>
-            <Link href="/admin/prompt-templates">Admin Templates</Link>
+            <span className="brand">Social Media Creator</span>
+            <Link className="nav-link" href="/chat">Media Creation</Link>
+            <Link className="nav-link" href="/admin/prompt-templates">Admin Templates</Link>
             {session?.user ? (
               <form action={signOutAction} style={{ display: "inline" }}>
                 <button type="submit">Sign Out ({session.user.email})</button>
               </form>
             ) : (
-              <Link href="/signin">Sign In</Link>
+              <Link className="nav-link" href="/signin">Sign In</Link>
             )}
           </nav>
         </header>
-        <main className="container">{children}</main>
+        <main className="container page">{children}</main>
       </body>
     </html>
   );

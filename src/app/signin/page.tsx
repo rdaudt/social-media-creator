@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth, signIn } from "@/auth";
+import { Button, Panel } from "@/components/ui";
 
 export default async function SignInPage({ searchParams }: { searchParams: Promise<{ callbackUrl?: string }> }) {
   const session = await auth();
@@ -11,17 +12,17 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
   }
 
   return (
-    <section className="card" style={{ maxWidth: 560, margin: "4rem auto" }}>
-      <h1>Sign in</h1>
-      <p>Use your Google account to access Social Media Creator.</p>
+    <Panel className="stack" style={{ maxWidth: 560, margin: "4rem auto" }}>
+      <h1 className="panel-title">Sign In</h1>
+      <p className="muted">Use your Google account to access Social Media Creator.</p>
       <form
         action={async () => {
           "use server";
           await signIn("google", { redirectTo: callbackUrl });
         }}
       >
-        <button type="submit">Continue with Google</button>
+        <Button type="submit">Continue with Google</Button>
       </form>
-    </section>
+    </Panel>
   );
 }
