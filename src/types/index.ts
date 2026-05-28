@@ -105,6 +105,17 @@ export type BootstrapTemplate = {
   defaultOptionsJson: string | null;
 };
 
+export type BootstrapStylePreset = {
+  id: string;
+  title: string;
+  description: string | null;
+  platform: string;
+  format: string;
+  promptText: string;
+  presetVersion: number;
+  isActive: boolean;
+};
+
 export type BootstrapSession = {
   id: string;
   title: string;
@@ -118,6 +129,7 @@ export type ChatBootstrapResponse = {
   classes: CoachHiitClass[];
   assets: BootstrapAsset[];
   templates: BootstrapTemplate[];
+  stylePresets: BootstrapStylePreset[];
   sessions: BootstrapSession[];
   defaults: {
     selectedLocationId?: string;
