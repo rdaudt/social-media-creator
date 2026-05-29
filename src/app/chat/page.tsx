@@ -3,8 +3,10 @@ import { requireCoachSessionUser } from "@/lib/auth";
 import ChatPageClient from "./ChatPageClient";
 
 export default async function ChatPage() {
+  let role: "coach" | "admin" = "coach";
   try {
-    await requireCoachSessionUser();
+    const user = await requireCoachSessionUser();
+    role = user.role;
   } catch (error) {
     const code = error instanceof Error ? error.message : "unauthorized";
     if (code === "forbidden") {
@@ -16,5 +18,5 @@ export default async function ChatPage() {
     throw error;
   }
 
-  return <ChatPageClient />;
+  return <ChatPageClient role={role} />;
 }

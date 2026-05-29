@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { validateHiitClassForMediaGeneration } from "@/lib/hiitClassValidation";
 import type { ChatBootstrapResponse, CoachHiitClassMedia } from "@/types";
 
@@ -33,7 +34,15 @@ const WORKOUT_WARRIOR_TEMPLATE_TITLES = new Set([
 ]);
 const DEFAULT_STYLE_PRESET_ID = "style_clean_dashboard_v1";
 
-export default function ChatPageClient() {
+type ChatPageClientProps = {
+  role: "coach" | "admin";
+};
+
+export default function ChatPageClient({ role }: ChatPageClientProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const isAdmin = role === "admin";
   const [activeTab, setActiveTab] = useState<"chat" | "prompt" | "classMedia">("chat");
   const [bootstrap, setBootstrap] = useState<ChatBootstrapResponse | null>(null);
   const [selectedLocationId, setSelectedLocationId] = useState<string>("");
@@ -63,6 +72,34 @@ export default function ChatPageClient() {
   const [deleteStateByMediaId, setDeleteStateByMediaId] = useState<Record<string, boolean>>({});
   const [shareStateByMediaId, setShareStateByMediaId] = useState<Record<string, boolean>>({});
   const [selectedClassMediaPreviewUrl, setSelectedClassMediaPreviewUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    const tabFromQuery = searchParams.get("tab");
+    if (tabFromQuery === "classMedia") {
+      setActiveTab("classMedia");
+      return;
+    }
+    if (tabFromQuery === "prompt" && isAdmin) {
+      setActiveTab("prompt");
+      return;
+    }
+    setActiveTab("chat");
+  }, [searchParams, isAdmin]);
+
+  useEffect(() => {
+    if (!isAdmin && activeTab === "prompt") {
+      setActiveTab("chat");
+      return;
+    }
+    const currentTab = searchParams.get("tab");
+    if (currentTab === activeTab) {
+      return;
+    }
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("tab", activeTab);
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  }, [activeTab, isAdmin, pathname, router, searchParams]);
 
   useEffect(() => {
     if (!isGenerating) return;
@@ -552,43 +589,6 @@ export default function ChatPageClient() {
 
   return (
     <div className="grid">
-      <section className="card">
-        <div className="tab-row" role="tablist" aria-label="Media creation views">
-          <button
-            type="button"
-            className={`tab-button ${activeTab === "chat" ? "is-active" : ""}`}
-            onClick={() => setActiveTab("chat")}
-            disabled={activeTab === "chat" || isFormLocked}
-            role="tab"
-            aria-selected={activeTab === "chat"}
-            aria-label="Open Media Creation Studio"
-          >
-            Media Creation Studio
-          </button>
-          <button
-            type="button"
-            className={`tab-button ${activeTab === "prompt" ? "is-active" : ""}`}
-            onClick={() => setActiveTab("prompt")}
-            disabled={activeTab === "prompt" || isFormLocked}
-            role="tab"
-            aria-selected={activeTab === "prompt"}
-            aria-label="Open Prompt Debug"
-          >
-            Prompt Debug
-          </button>
-          <button
-            type="button"
-            className={`tab-button ${activeTab === "classMedia" ? "is-active" : ""}`}
-            onClick={() => setActiveTab("classMedia")}
-            disabled={activeTab === "classMedia" || isFormLocked}
-            role="tab"
-            aria-selected={activeTab === "classMedia"}
-            aria-label="Open Media Management"
-          >
-            Media Management
-          </button>
-        </div>
-      </section>
       <section className="card stack">
         <div className="split" style={{ justifyContent: "flex-start", gap: 10 }}>
           {toImageSrc(bootstrap?.coach?.coachPhotoUrl) ? (
@@ -729,7 +729,7 @@ export default function ChatPageClient() {
             </div>
           </section>
         </>
-      ) : activeTab === "prompt" ? (
+      ) : activeTab === "prompt" && isAdmin ? (
         <section className="card stack">
           <h2 className="panel-title">Prompt Debug</h2>
               <p className="muted">Complete prompt sent to the LLM for the latest generation request.</p>
@@ -839,6 +839,43 @@ export default function ChatPageClient() {
           </div>
         </div>
       ) : null}
+      <nav className="footer-nav" role="tablist" aria-label="Media creation views">
+        <button
+          type="button"
+          className={`tab-button ${activeTab === "chat" ? "is-active" : ""}`}
+          onClick={() => setActiveTab("chat")}
+          disabled={activeTab === "chat" || isFormLocked}
+          role="tab"
+          aria-selected={activeTab === "chat"}
+          aria-label="Open Media Creation Studio"
+        >
+          Media Creation Studio
+        </button>
+        {isAdmin ? (
+          <button
+            type="button"
+            className={`tab-button ${activeTab === "prompt" ? "is-active" : ""}`}
+            onClick={() => setActiveTab("prompt")}
+            disabled={activeTab === "prompt" || isFormLocked}
+            role="tab"
+            aria-selected={activeTab === "prompt"}
+            aria-label="Open Prompt Debug"
+          >
+            Prompt Debug
+          </button>
+        ) : null}
+        <button
+          type="button"
+          className={`tab-button ${activeTab === "classMedia" ? "is-active" : ""}`}
+          onClick={() => setActiveTab("classMedia")}
+          disabled={activeTab === "classMedia" || isFormLocked}
+          role="tab"
+          aria-selected={activeTab === "classMedia"}
+          aria-label="Open Media Management"
+        >
+          Media Management
+        </button>
+      </nav>
     </div>
   );
 }
