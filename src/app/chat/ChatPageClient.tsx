@@ -26,6 +26,9 @@ type GenerationImageMeta = {
 type CostSnapshot = {
   estimate?: { minEstimateUsd: number; maxEstimateUsd: number; confidence: "high" | "low" };
   spend?: { todayUsd: number; monthUsd: number; lifetimeUsd: number };
+  tracking?: { requestedCount: number; successCount: number };
+  caps?: { effectiveCapUsd: number | null; capSource: "user" | "global" | "none"; isCapped: boolean; remainingUsd: number | null };
+  balance?: { effectiveLifetimeUsd: number; source: "usage_sum" | "manual_override" };
   pricingBasis?: { model: string; effectiveFrom: string; version: string };
 };
 const WORKOUT_WARRIOR_TEMPLATE_TITLES = new Set([
@@ -66,12 +69,25 @@ export default function ChatPageClient({ role }: ChatPageClientProps) {
   const [generationError, setGenerationError] = useState<string>("");
   const [generationElapsedSeconds, setGenerationElapsedSeconds] = useState(0);
   const [costSnapshot, setCostSnapshot] = useState<CostSnapshot | null>(null);
+  const [isCostStateLoading, setIsCostStateLoading] = useState(true);
   const [classMedia, setClassMedia] = useState<CoachHiitClassMedia[]>([]);
   const [isLoadingClassMedia, setIsLoadingClassMedia] = useState(false);
   const [attachStateByMessageId, setAttachStateByMessageId] = useState<Record<string, "idle" | "loading" | "success" | "error">>({});
   const [deleteStateByMediaId, setDeleteStateByMediaId] = useState<Record<string, boolean>>({});
   const [shareStateByMediaId, setShareStateByMediaId] = useState<Record<string, boolean>>({});
   const [selectedClassMediaPreviewUrl, setSelectedClassMediaPreviewUrl] = useState<string | null>(null);
+
+  async function refreshCostState(format: "square" | "portrait" | "story") {
+    setIsCostStateLoading(true);
+    try {
+      const data = await fetch(`/api/chat/costs?format=${format}`).then((r) => r.json());
+      setCostSnapshot(data as CostSnapshot);
+    } catch {
+      // keep existing snapshot on fetch failure
+    } finally {
+      setIsCostStateLoading(false);
+    }
+  }
 
   useEffect(() => {
     const tabFromQuery = searchParams.get("tab");
@@ -131,10 +147,7 @@ export default function ChatPageClient({ role }: ChatPageClientProps) {
   }, []);
 
   useEffect(() => {
-    void fetch(`/api/chat/costs?format=${selectedFormat}`)
-      .then((r) => r.json())
-      .then((d: CostSnapshot) => setCostSnapshot(d))
-      .catch(() => {});
+    void refreshCostState(selectedFormat);
   }, [selectedFormat, messages.length]);
 
   useEffect(() => {
@@ -170,6 +183,13 @@ export default function ChatPageClient({ role }: ChatPageClientProps) {
 
   async function submitGenerate() {
     if (!message.trim() || isGenerating) return;
+    if (isCostStateLoading) return;
+    if (costSnapshot?.caps?.isCapped) {
+      const effectiveBalance = Number(costSnapshot.balance?.effectiveLifetimeUsd ?? 0).toFixed(4);
+      const effectiveCap = Number(costSnapshot.caps.effectiveCapUsd ?? 0).toFixed(4);
+      setGenerationError(`Image generation limit reached: $${effectiveBalance} / $${effectiveCap}.`);
+      return;
+    }
     const selectedTemplate = (bootstrap?.templates ?? []).find((tpl) => tpl.id === selectedTemplateId);
     const isWorkoutWarriorTemplate = WORKOUT_WARRIOR_TEMPLATE_TITLES.has(selectedTemplate?.title?.trim().toLowerCase() ?? "");
     const selectedClass = (bootstrap?.classes ?? []).find((klass) => klass.id === selectedClassId);
@@ -253,10 +273,7 @@ export default function ChatPageClient({ role }: ChatPageClientProps) {
         setTempUploadNames([]);
         setAttendeeImageRef("");
         setAttendeeImageName("");
-        void fetch(`/api/chat/costs?format=${selectedFormat}`)
-          .then((r) => r.json())
-          .then((d: CostSnapshot) => setCostSnapshot(d))
-          .catch(() => {});
+        void refreshCostState(selectedFormat);
       }
     } finally {
       if (poller) clearInterval(poller);
@@ -575,6 +592,10 @@ export default function ChatPageClient({ role }: ChatPageClientProps) {
   const stylePresetOptions = (bootstrap?.stylePresets ?? []).filter((preset) => preset.format === "any" || preset.format === selectedFormat);
   const isWorkoutWarriorTemplate = WORKOUT_WARRIOR_TEMPLATE_TITLES.has(selectedTemplate?.title?.trim().toLowerCase() ?? "");
   const isFormLocked = isGenerating;
+  const isGenerateDisabled = isGenerating || isCostStateLoading || Boolean(costSnapshot?.caps?.isCapped);
+  const capBanner = costSnapshot?.caps?.isCapped
+    ? `Image generation limit reached: $${Number(costSnapshot.balance?.effectiveLifetimeUsd ?? 0).toFixed(4)} / $${Number(costSnapshot.caps.effectiveCapUsd ?? 0).toFixed(4)}.`
+    : "";
   const elapsedMinutes = String(Math.floor(generationElapsedSeconds / 60)).padStart(2, "0");
   const elapsedSeconds = String(generationElapsedSeconds % 60).padStart(2, "0");
   const latestAssistantMessage = [...messages].reverse().find((m) => m.role === "assistant");
@@ -673,11 +694,13 @@ export default function ChatPageClient({ role }: ChatPageClientProps) {
                 disabled={isFormLocked}
               />
               <div className="actions">
-                <button type="button" onClick={submitGenerate} disabled={isGenerating}>{isGenerating ? "Generating..." : "Generate"}</button>
+                <button type="button" onClick={submitGenerate} disabled={isGenerateDisabled}>{isGenerating ? "Generating..." : "Generate"}</button>
                 <button type="button" onClick={submitDownloadPrompt} disabled={isGenerating || isDownloadingPrompt || isFormLocked}>
                   {isDownloadingPrompt ? "Preparing..." : "Download LLM Message"}
                 </button>
               </div>
+              {isCostStateLoading ? <p className="muted">Loading usage limits...</p> : null}
+              {!isCostStateLoading && capBanner ? <p className="alert error" role="alert">{capBanner}</p> : null}
               {costSnapshot?.estimate ? (
                 <p className="muted">
                   Estimated cost: ${costSnapshot.estimate.minEstimateUsd.toFixed(4)} - ${costSnapshot.estimate.maxEstimateUsd.toFixed(4)}
@@ -690,6 +713,8 @@ export default function ChatPageClient({ role }: ChatPageClientProps) {
                 <small>Today: ${(costSnapshot?.spend?.todayUsd ?? 0).toFixed(4)}</small>
                 <small>This month: ${(costSnapshot?.spend?.monthUsd ?? 0).toFixed(4)}</small>
                 <small>Lifetime: ${(costSnapshot?.spend?.lifetimeUsd ?? 0).toFixed(4)}</small>
+                <small>Requested: {costSnapshot?.tracking?.requestedCount ?? 0}</small>
+                <small>Succeeded: {costSnapshot?.tracking?.successCount ?? 0}</small>
               </div>
               {generationStatus ? <p className="alert" role="status">{generationStatus}</p> : null}
               {generationError ? <p className="alert error" role="alert">{generationError}</p> : null}

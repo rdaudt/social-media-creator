@@ -90,3 +90,25 @@ CREATE TABLE IF NOT EXISTS coach_hiit_class_media (
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_coach_hiit_class_media_class_blob
   ON coach_hiit_class_media (class_id, blob_url);
+
+CREATE TABLE IF NOT EXISTS spending_caps (
+  id TEXT PRIMARY KEY,
+  cap_type TEXT NOT NULL UNIQUE,
+  cap_usd REAL NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS user_spending_caps (
+  owner_google_sub TEXT PRIMARY KEY,
+  cap_usd REAL NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS user_balance_overrides (
+  owner_google_sub TEXT PRIMARY KEY,
+  balance_usd REAL NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);

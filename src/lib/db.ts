@@ -1,8 +1,11 @@
 import { createClient } from "@libsql/client";
 
+const tursoUrl = process.env.TURSO_DATABASE_URL?.trim();
+const tursoToken = process.env.TURSO_AUTH_TOKEN?.trim();
+
 export const db = createClient({
-  url: process.env.TURSO_DATABASE_URL ?? "file:local.db",
-  authToken: process.env.TURSO_AUTH_TOKEN
+  url: tursoUrl || "file:local.db",
+  authToken: tursoUrl ? (tursoToken || undefined) : undefined
 });
 
 export async function bootstrapSchema(): Promise<void> {
@@ -106,6 +109,25 @@ export async function bootstrapSchema(): Promise<void> {
       source_message_id TEXT,
       is_sharable INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS spending_caps (
+      id TEXT PRIMARY KEY,
+      cap_type TEXT NOT NULL UNIQUE,
+      cap_usd REAL NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS user_spending_caps (
+      owner_google_sub TEXT PRIMARY KEY,
+      cap_usd REAL NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS user_balance_overrides (
+      owner_google_sub TEXT PRIMARY KEY,
+      balance_usd REAL NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
     )`
   ], "write");
 
