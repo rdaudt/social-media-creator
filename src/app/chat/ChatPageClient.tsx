@@ -35,7 +35,8 @@ const WORKOUT_WARRIOR_TEMPLATE_TITLES = new Set([
   "ig hiit workout warrior",
   "ig hiit workout warrior collective"
 ]);
-const DEFAULT_STYLE_PRESET_ID = "style_clean_dashboard_v1";
+const DEFAULT_TEMPLATE_TITLE = "ig hiit standard";
+const DEFAULT_STYLE_PRESET_TITLE = "modern brutalism";
 
 type ChatPageClientProps = {
   role: "coach" | "admin";
@@ -52,7 +53,7 @@ export default function ChatPageClient({ role }: ChatPageClientProps) {
   const [selectedClassId, setSelectedClassId] = useState<string>("");
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
   const [selectedStylePresetId, setSelectedStylePresetId] = useState<string>("");
-  const [selectedFormat, setSelectedFormat] = useState<"square" | "portrait" | "story">("square");
+  const [selectedFormat, setSelectedFormat] = useState<"square" | "portrait" | "story">("portrait");
   const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>([]);
   const [runSessionId, setRunSessionId] = useState<string>("");
   const [uploadSessionId, setUploadSessionId] = useState<string>("");
@@ -134,12 +135,13 @@ export default function ChatPageClient({ role }: ChatPageClientProps) {
         setBootstrap(d);
         setSelectedLocationId(d.defaults?.selectedLocationId ?? "");
         setSelectedClassId(d.defaults?.selectedClassId ?? d.classes?.[0]?.id ?? "");
-        if (d.templates?.[0]) {
-          setSelectedTemplateId(d.templates[0].id);
-          setMessage(d.templates[0].promptText);
+        const defaultTemplate = (d.templates ?? []).find((tpl) => tpl.title.trim().toLowerCase() === DEFAULT_TEMPLATE_TITLE) ?? d.templates?.[0];
+        if (defaultTemplate) {
+          setSelectedTemplateId(defaultTemplate.id);
+          setMessage(defaultTemplate.promptText);
         }
         const stylePresets = d.stylePresets ?? [];
-        const preferredStyle = stylePresets.find((preset) => preset.id === DEFAULT_STYLE_PRESET_ID) ?? stylePresets[0];
+        const preferredStyle = stylePresets.find((preset) => preset.title.trim().toLowerCase() === DEFAULT_STYLE_PRESET_TITLE) ?? stylePresets[0];
         if (preferredStyle) {
           setSelectedStylePresetId(preferredStyle.id);
         }
