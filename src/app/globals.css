@@ -8,6 +8,7 @@
   --surface-selected: #26221c;
   --border-default: #2a2a2a;
   --border-strong: #3b3731;
+  --border-input: #575149;
   --border-selected: #4a3f2f;
   --text-primary: #ffffff;
   --text-secondary: #cfcfcf;
@@ -319,7 +320,7 @@ input, select, textarea {
   width: 100%;
   color: var(--text-primary);
   background: var(--surface-2);
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--border-input);
   border-radius: 10px;
   min-height: 48px;
   padding: 10px 12px;
