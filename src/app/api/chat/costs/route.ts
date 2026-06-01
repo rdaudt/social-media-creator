@@ -4,6 +4,7 @@ import { estimateRunCostRange } from "@/lib/cost-estimator";
 import { bootstrapSchema, db } from "@/lib/db";
 import { authErrorResponse } from "@/lib/http";
 import { resolvePricingRateSet } from "@/lib/pricing";
+import { getUserCapStatus } from "@/lib/spending";
 
 export async function GET(req: Request) {
   try {
@@ -29,6 +30,7 @@ export async function GET(req: Request) {
       args: [dayStart, monthStart, user.sub]
     });
     const row = spend.rows[0];
+    const capStatus = await getUserCapStatus(user.sub);
     return NextResponse.json({
       estimate,
       spend: {
@@ -36,6 +38,9 @@ export async function GET(req: Request) {
         monthUsd: Number(Number(row?.month_total ?? 0).toFixed(6)),
         lifetimeUsd: Number(Number(row?.lifetime_total ?? 0).toFixed(6))
       },
+      tracking: capStatus.tracking,
+      caps: capStatus.caps,
+      balance: capStatus.balance,
       pricingBasis: {
         model,
         effectiveFrom: pricing.effectiveFrom,

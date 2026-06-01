@@ -9,6 +9,7 @@ import { checkRateLimit } from "@/lib/rate-limit";
 import { validateHiitClassForMediaGeneration } from "@/lib/hiitClassValidation";
 import { generateSchema } from "@/lib/validation";
 import { calculateActualCostUsd, estimateCostUsdFromTotals, resolvePricingRateSet, type CostConfidence } from "@/lib/pricing";
+import { getUserCapStatus } from "@/lib/spending";
 import type { ChatBootstrapResponse, CoachHiitClass, CoachLocation, GenerateResponse } from "@/types";
 
 type StagedImageRole = "coach_photo_url" | "business_logo_url" | "location_logo_url" | "user_uploaded_image" | "selected_asset" | "attendee_photo_url";
@@ -282,6 +283,17 @@ export async function POST(req: Request) {
       return NextResponse.json(response);
     }
 
+    const capStatus = await getUserCapStatus(user.sub);
+    if (capStatus.caps.isCapped) {
+      return NextResponse.json({
+        status: "failed",
+        error: {
+          code: "cap_reached",
+          message: `Image generation limit reached: $${capStatus.balance.effectiveLifetimeUsd.toFixed(4)} / $${Number(capStatus.caps.effectiveCapUsd ?? 0).toFixed(4)}.`
+        }
+      }, { status: 429 });
+    }
+
     userMessageId = newId("msg");
     const ts = nowIso();
     const start = Date.now();
@@ -305,15 +317,21 @@ export async function POST(req: Request) {
       assembledPrompt
     };
 
-    await db.execute({
-      sql: `INSERT INTO chat_messages (id, session_id, role, content, attachments_json, created_at, parent_message_id)
-            VALUES (?, ?, 'user', ?, ?, ?, ?)`,
-      args: [userMessageId, body.sessionId, body.message, JSON.stringify({
-        selectedAssetIds: body.selectedAssetIds,
-        tempUploadRefs: body.tempUploadRefs,
-        promptEnvelope
-      }), ts, body.parentMessageId ?? null]
-    });
+    await db.batch([
+      {
+        sql: `INSERT INTO generation_events (id, owner_google_sub, session_id, message_id, status, created_at) VALUES (?, ?, ?, ?, 'accepted', ?)`,
+        args: [newId("evt"), user.sub, body.sessionId, userMessageId, ts]
+      },
+      {
+        sql: `INSERT INTO chat_messages (id, session_id, role, content, attachments_json, created_at, parent_message_id)
+              VALUES (?, ?, 'user', ?, ?, ?, ?)`,
+        args: [userMessageId, body.sessionId, body.message, JSON.stringify({
+          selectedAssetIds: body.selectedAssetIds,
+          tempUploadRefs: body.tempUploadRefs,
+          promptEnvelope
+        }), ts, body.parentMessageId ?? null]
+      }
+    ], "write");
     console.info(`[chat.generate][${reqId}] user_message_saved messageId=${userMessageId}`);
 
     const imageInputs = stagedImages.map((ref) => ref.url);
