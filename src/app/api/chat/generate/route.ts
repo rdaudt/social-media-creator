@@ -43,10 +43,8 @@ type GenerationContextJson = {
 };
 
 const UPLOAD_ALLOWED_CONTENT_TYPES = new Set(["image/jpeg", "image/png"]);
-const WORKOUT_WARRIOR_TEMPLATE_TITLES = new Set([
-  "ig hiit workout warrior",
-  "ig hiit workout warrior collective"
-]);
+const WORKOUT_WARRIOR_TEMPLATE_TITLE = "ig hiit workout warrior";
+const WORKOUT_WARRIOR_COLLECTIVE_TEMPLATE_TITLE = "ig hiit workout warrior collective";
 const DEFAULT_STYLE_PRESET_ID = "style_clean_dashboard_v1";
 
 export async function POST(req: Request) {
@@ -129,12 +127,17 @@ export async function POST(req: Request) {
       return validationError("style_preset_invalid", "Selected style preset is invalid.");
     }
 
-    const isWorkoutWarriorTemplate = WORKOUT_WARRIOR_TEMPLATE_TITLES.has(templateTitle.trim().toLowerCase());
+    const normalizedTemplateTitle = templateTitle.trim().toLowerCase();
+    const isWorkoutWarriorTemplate = normalizedTemplateTitle === WORKOUT_WARRIOR_TEMPLATE_TITLE;
+    const isWorkoutWarriorCollectiveTemplate = normalizedTemplateTitle === WORKOUT_WARRIOR_COLLECTIVE_TEMPLATE_TITLE;
+    const needsAttendeeImage = isWorkoutWarriorTemplate || isWorkoutWarriorCollectiveTemplate;
     const effectiveAttendeeImageRef = body.attendeeImageRef || body.tempUploadRefs[body.tempUploadRefs.length - 1] || "";
     if (isWorkoutWarriorTemplate) {
       if (!body.attendeeName) {
         return validationError("attendee_name_required", "Provide the attendee name for the IG HIIT Workout Warrior template.");
       }
+    }
+    if (needsAttendeeImage) {
       if (!effectiveAttendeeImageRef) {
         return validationError("attendee_image_required", "Upload the attendee or group image for the IG HIIT Workout Warrior template.");
       }

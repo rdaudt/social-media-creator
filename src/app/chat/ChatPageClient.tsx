@@ -31,10 +31,8 @@ type CostSnapshot = {
   balance?: { effectiveLifetimeUsd: number; source: "usage_sum" | "manual_override" };
   pricingBasis?: { model: string; effectiveFrom: string; version: string };
 };
-const WORKOUT_WARRIOR_TEMPLATE_TITLES = new Set([
-  "ig hiit workout warrior",
-  "ig hiit workout warrior collective"
-]);
+const WORKOUT_WARRIOR_TEMPLATE_TITLE = "ig hiit workout warrior";
+const WORKOUT_WARRIOR_COLLECTIVE_TEMPLATE_TITLE = "ig hiit workout warrior collective";
 const DEFAULT_TEMPLATE_TITLE = "ig hiit standard";
 const DEFAULT_STYLE_PRESET_TITLE = "modern brutalism";
 
@@ -193,7 +191,10 @@ export default function ChatPageClient({ role }: ChatPageClientProps) {
       return;
     }
     const selectedTemplate = (bootstrap?.templates ?? []).find((tpl) => tpl.id === selectedTemplateId);
-    const isWorkoutWarriorTemplate = WORKOUT_WARRIOR_TEMPLATE_TITLES.has(selectedTemplate?.title?.trim().toLowerCase() ?? "");
+    const selectedTemplateTitle = selectedTemplate?.title?.trim().toLowerCase() ?? "";
+    const isWorkoutWarriorTemplate = selectedTemplateTitle === WORKOUT_WARRIOR_TEMPLATE_TITLE;
+    const isWorkoutWarriorCollectiveTemplate = selectedTemplateTitle === WORKOUT_WARRIOR_COLLECTIVE_TEMPLATE_TITLE;
+    const needsAttendeeImage = isWorkoutWarriorTemplate || isWorkoutWarriorCollectiveTemplate;
     const selectedClass = (bootstrap?.classes ?? []).find((klass) => klass.id === selectedClassId);
     if (!selectedClass) {
       setGenerationError("Select a HIIT class before generating an image.");
@@ -217,11 +218,11 @@ export default function ChatPageClient({ role }: ChatPageClientProps) {
       ? attendeeImageRef || scopedTempUploadRefs[scopedTempUploadRefs.length - 1] || ""
       : "";
 
-    if (isWorkoutWarriorTemplate && !uploadsMatchActiveSession) {
+    if (needsAttendeeImage && !uploadsMatchActiveSession) {
       setGenerationError("Please upload the attendee/group image again for this run.");
       return;
     }
-    if (isWorkoutWarriorTemplate && !effectiveAttendeeImageRef) {
+    if (needsAttendeeImage && !effectiveAttendeeImageRef) {
       setGenerationError("Upload the attendee or group image for IG HIIT Workout Warrior.");
       return;
     }
@@ -327,7 +328,10 @@ export default function ChatPageClient({ role }: ChatPageClientProps) {
   async function submitDownloadPrompt() {
     if (!message.trim() || isGenerating || isDownloadingPrompt) return;
     const selectedTemplate = (bootstrap?.templates ?? []).find((tpl) => tpl.id === selectedTemplateId);
-    const isWorkoutWarriorTemplate = WORKOUT_WARRIOR_TEMPLATE_TITLES.has(selectedTemplate?.title?.trim().toLowerCase() ?? "");
+    const selectedTemplateTitle = selectedTemplate?.title?.trim().toLowerCase() ?? "";
+    const isWorkoutWarriorTemplate = selectedTemplateTitle === WORKOUT_WARRIOR_TEMPLATE_TITLE;
+    const isWorkoutWarriorCollectiveTemplate = selectedTemplateTitle === WORKOUT_WARRIOR_COLLECTIVE_TEMPLATE_TITLE;
+    const needsAttendeeImage = isWorkoutWarriorTemplate || isWorkoutWarriorCollectiveTemplate;
     const selectedClass = (bootstrap?.classes ?? []).find((klass) => klass.id === selectedClassId);
     if (!selectedClass) {
       setGenerationError("Select a HIIT class before generating an image.");
@@ -351,11 +355,11 @@ export default function ChatPageClient({ role }: ChatPageClientProps) {
       ? attendeeImageRef || scopedTempUploadRefs[scopedTempUploadRefs.length - 1] || ""
       : "";
 
-    if (isWorkoutWarriorTemplate && !uploadsMatchActiveSession) {
+    if (needsAttendeeImage && !uploadsMatchActiveSession) {
       setGenerationError("Please upload the attendee/group image again for this run.");
       return;
     }
-    if (isWorkoutWarriorTemplate && !effectiveAttendeeImageRef) {
+    if (needsAttendeeImage && !effectiveAttendeeImageRef) {
       setGenerationError("Upload the attendee or group image for IG HIIT Workout Warrior.");
       return;
     }
@@ -592,7 +596,9 @@ export default function ChatPageClient({ role }: ChatPageClientProps) {
     : "";
   const selectedTemplate = (bootstrap?.templates ?? []).find((tpl) => tpl.id === selectedTemplateId);
   const stylePresetOptions = (bootstrap?.stylePresets ?? []).filter((preset) => preset.format === "any" || preset.format === selectedFormat);
-  const isWorkoutWarriorTemplate = WORKOUT_WARRIOR_TEMPLATE_TITLES.has(selectedTemplate?.title?.trim().toLowerCase() ?? "");
+  const selectedTemplateTitle = selectedTemplate?.title?.trim().toLowerCase() ?? "";
+  const isWorkoutWarriorTemplate = selectedTemplateTitle === WORKOUT_WARRIOR_TEMPLATE_TITLE;
+  const isWorkoutWarriorCollectiveTemplate = selectedTemplateTitle === WORKOUT_WARRIOR_COLLECTIVE_TEMPLATE_TITLE;
   const isFormLocked = isGenerating;
   const isGenerateDisabled = isGenerating || isCostStateLoading || Boolean(costSnapshot?.caps?.isCapped);
   const capBanner = costSnapshot?.caps?.isCapped
@@ -673,6 +679,18 @@ export default function ChatPageClient({ role }: ChatPageClientProps) {
               placeholder="Attendee name"
               disabled={isFormLocked}
             />
+            <input
+              type="file"
+              accept="image/jpeg,image/png,.jpg,.jpeg,.png"
+              onChange={(e) => void uploadAttendeeImage(e.target.files?.[0] ?? null)}
+              disabled={isFormLocked}
+            />
+            {attendeeImageName ? <small>Staged attendee image: {attendeeImageName}</small> : null}
+          </>
+        ) : null}
+        {isWorkoutWarriorCollectiveTemplate ? (
+          <>
+            <h3 style={{ marginTop: 10 }}>HIIT Class group image</h3>
             <input
               type="file"
               accept="image/jpeg,image/png,.jpg,.jpeg,.png"
