@@ -22,9 +22,10 @@ WHERE cap_type = 'image_generation';
 ## 3) Set or update per-user cap override
 
 ```sql
-INSERT INTO user_spending_caps (owner_google_sub, cap_usd, created_at, updated_at)
-VALUES ('GOOGLE_SUB_HERE', 10.00, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+INSERT INTO user_spending_caps (owner_google_sub, user_email, cap_usd, created_at, updated_at)
+VALUES ('GOOGLE_SUB_HERE', 'user@example.com', 10.00, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 ON CONFLICT(owner_google_sub) DO UPDATE SET
+  user_email = excluded.user_email,
   cap_usd = excluded.cap_usd,
   updated_at = CURRENT_TIMESTAMP;
 ```
@@ -39,9 +40,10 @@ WHERE owner_google_sub = 'GOOGLE_SUB_HERE';
 ## 5) Set or update per-user manual balance override (absolute value)
 
 ```sql
-INSERT INTO user_balance_overrides (owner_google_sub, balance_usd, created_at, updated_at)
-VALUES ('GOOGLE_SUB_HERE', 18.75, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+INSERT INTO user_balance_overrides (owner_google_sub, user_email, balance_usd, created_at, updated_at)
+VALUES ('GOOGLE_SUB_HERE', 'user@example.com', 18.75, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 ON CONFLICT(owner_google_sub) DO UPDATE SET
+  user_email = excluded.user_email,
   balance_usd = excluded.balance_usd,
   updated_at = CURRENT_TIMESTAMP;
 ```

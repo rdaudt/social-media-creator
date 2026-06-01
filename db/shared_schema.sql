@@ -101,6 +101,7 @@ CREATE TABLE IF NOT EXISTS spending_caps (
 
 CREATE TABLE IF NOT EXISTS user_spending_caps (
   owner_google_sub TEXT PRIMARY KEY,
+  user_email TEXT,
   cap_usd REAL NOT NULL,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
@@ -108,6 +109,7 @@ CREATE TABLE IF NOT EXISTS user_spending_caps (
 
 CREATE TABLE IF NOT EXISTS user_balance_overrides (
   owner_google_sub TEXT PRIMARY KEY,
+  user_email TEXT,
   balance_usd REAL NOT NULL,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL

@@ -119,12 +119,14 @@ export async function bootstrapSchema(): Promise<void> {
     )`,
     `CREATE TABLE IF NOT EXISTS user_spending_caps (
       owner_google_sub TEXT PRIMARY KEY,
+      user_email TEXT,
       cap_usd REAL NOT NULL,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     )`,
     `CREATE TABLE IF NOT EXISTS user_balance_overrides (
       owner_google_sub TEXT PRIMARY KEY,
+      user_email TEXT,
       balance_usd REAL NOT NULL,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
@@ -141,6 +143,7 @@ export async function bootstrapSchema(): Promise<void> {
   await ensureInteractionUsageColumns();
   await ensureClassMediaColumns();
   await ensureCoachHiitClassColumns();
+  await ensureSpendingOverrideColumns();
   await seedModelPricingRates();
   await seedStylePresets();
 }
@@ -200,6 +203,20 @@ async function ensureCoachHiitClassColumns(): Promise<void> {
   }
   if (!names.has("station_workout_types_json")) {
     await db.execute({ sql: `ALTER TABLE coach_hiit_classes ADD COLUMN station_workout_types_json TEXT`, args: [] });
+  }
+}
+
+async function ensureSpendingOverrideColumns(): Promise<void> {
+  const capCols = await db.execute({ sql: `PRAGMA table_info(user_spending_caps)`, args: [] });
+  const capNames = new Set(capCols.rows.map((row) => String(row.name)));
+  if (!capNames.has("user_email")) {
+    await db.execute({ sql: `ALTER TABLE user_spending_caps ADD COLUMN user_email TEXT`, args: [] });
+  }
+
+  const balanceCols = await db.execute({ sql: `PRAGMA table_info(user_balance_overrides)`, args: [] });
+  const balanceNames = new Set(balanceCols.rows.map((row) => String(row.name)));
+  if (!balanceNames.has("user_email")) {
+    await db.execute({ sql: `ALTER TABLE user_balance_overrides ADD COLUMN user_email TEXT`, args: [] });
   }
 }
 
